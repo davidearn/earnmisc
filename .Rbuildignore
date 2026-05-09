@@ -1,5 +1,11 @@
-^reference-code$
-^sandbox$
+^\.git$
+^\.gitignore$
+^AGENTS\.md$
 ^Makefile$
+^README\.Rmd$
+^reference-code$
 ^tools$
-
+^.*\.Rproj$
+^\.Rproj\.user$
+^earnmisc_[0-9.]+.*\.tar\.gz$
+^earnmisc\.Rcheck$

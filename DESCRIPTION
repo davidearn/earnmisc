@@ -1,0 +1,14 @@
+Package: earnmisc
+Title: Miscellaneous Utility Functions for David Earn
+Version: 0.0.0.9000
+Authors@R:
+    person("David", "Earn", email = "earn@math.mcmaster.ca", role = c("aut", "cre"))
+Description: Small general-purpose helper functions used across related
+    R packages, including colour palette helpers and base graphics utilities.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
