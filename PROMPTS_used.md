@@ -377,5 +377,7 @@ There were pre-existing unrelated dirty files: `PROMPT_latest.md`, `PROMPTS_used
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260509T183521Z -->
-_Pending._
+- Recorded: `2026-05-09T18:39:39+00:00`
+- Hash: `69fcd7f9283301112ddae7e4b171b55577b83cdd`
+- Subject: Add extended palettes and vectorised plotting helpers
 <!-- codex-workflow-commit-end: 20260509T183521Z -->
