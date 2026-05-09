@@ -9,6 +9,17 @@ test_that("xys_line scalar input returns parameters invisibly", {
   expect_identical(result$value, c(intercept = -2, slope = 2))
 })
 
+test_that("xys_line scalar infinite slope returns vertical line parameters invisibly", {
+  grDevices::pdf(file = NULL)
+  on.exit(grDevices::dev.off())
+  graphics::plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+
+  result <- withVisible(xys_line(0.5, 0, slope = Inf))
+
+  expect_false(result$visible)
+  expect_identical(result$value, c(intercept = NA_real_, slope = Inf))
+})
+
 test_that("xys_line handles one vector argument", {
   grDevices::pdf(file = NULL)
   on.exit(grDevices::dev.off())
@@ -22,6 +33,52 @@ test_that("xys_line handles one vector argument", {
   expect_identical(result$value$y, c(0.1, -0.1))
   expect_identical(result$value$slope, c(1, 1))
   expect_identical(result$value$intercept, c(0.1, -0.1))
+})
+
+test_that("xys_line expands vector graphical parameters", {
+  grDevices::pdf(file = NULL)
+  on.exit(grDevices::dev.off())
+  graphics::plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+
+  result <- withVisible(
+    xys_line(
+      0,
+      c(0.1, -0.1),
+      slope = 1,
+      col = c("blue", "red"),
+      lty = c("solid", "dotted"),
+      lwd = c(1, 2)
+    )
+  )
+  graphics.parameters <- attr(result$value, "graphics.parameters")
+
+  expect_false(result$visible)
+  expect_identical(graphics.parameters$col, c("blue", "red"))
+  expect_identical(graphics.parameters$lty, c("solid", "dotted"))
+  expect_identical(graphics.parameters$lwd, c(1, 2))
+})
+
+test_that("xys_line recycles scalar graphical parameters", {
+  grDevices::pdf(file = NULL)
+  on.exit(grDevices::dev.off())
+  graphics::plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+
+  result <- withVisible(
+    xys_line(
+      0,
+      c(0.1, -0.1),
+      slope = 1,
+      col = "blue",
+      lty = "solid",
+      lwd = 2
+    )
+  )
+  graphics.parameters <- attr(result$value, "graphics.parameters")
+
+  expect_false(result$visible)
+  expect_identical(graphics.parameters$col, c("blue", "blue"))
+  expect_identical(graphics.parameters$lty, c("solid", "solid"))
+  expect_identical(graphics.parameters$lwd, c(2, 2))
 })
 
 test_that("xys_line handles all combinations of vector arguments", {
@@ -40,7 +97,62 @@ test_that("xys_line handles all combinations of vector arguments", {
   expected$intercept <- expected$y - expected$slope * expected$x
 
   expect_false(result$visible)
+  attr(expected, "graphics.parameters") <- list()
   expect_identical(result$value, expected)
+})
+
+test_that("xys_line handles vectorised infinite slopes", {
+  grDevices::pdf(file = NULL)
+  on.exit(grDevices::dev.off())
+  graphics::plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+
+  result <- withVisible(
+    xys_line(
+      c(-0.5, 0.5),
+      0,
+      slope = Inf,
+      col = c("blue", "red"),
+      lty = c("solid", "dotted")
+    )
+  )
+
+  expect_false(result$visible)
+  expect_identical(result$value$x, c(-0.5, 0.5))
+  expect_identical(result$value$y, c(0, 0))
+  expect_identical(result$value$slope, c(Inf, Inf))
+  expect_identical(result$value$intercept, c(NA_real_, NA_real_))
+  expect_identical(attr(result$value, "graphics.parameters")$col, c("blue", "red"))
+  expect_identical(attr(result$value, "graphics.parameters")$lty, c("solid", "dotted"))
+})
+
+test_that("xys_line handles mixed finite and infinite slopes", {
+  grDevices::pdf(file = NULL)
+  on.exit(grDevices::dev.off())
+  graphics::plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+
+  result <- withVisible(
+    xys_line(
+      0,
+      0,
+      slope = c(1, Inf, -Inf),
+      col = c("blue", "red", "black"),
+      lty = c("solid", "dotted", "dashed")
+    )
+  )
+
+  expect_false(result$visible)
+  expect_identical(result$value$x, c(0, 0, 0))
+  expect_identical(result$value$y, c(0, 0, 0))
+  expect_identical(result$value$slope, c(1, Inf, -Inf))
+  expect_identical(result$value$intercept, c(0, NA_real_, NA_real_))
+  expect_identical(
+    attr(result$value, "graphics.parameters")$col,
+    c("blue", "red", "black")
+  )
+  expect_identical(
+    attr(result$value, "graphics.parameters")$lty,
+    c("solid", "dotted", "dashed")
+  )
 })
 
 test_that("xys_line validates numeric vector inputs", {

@@ -1,122 +1,122 @@
 # Latest Codex Prompt
 
-- Entry ID: `20260509T183521Z`
-- Recorded: `2026-05-09T18:35:21+00:00`
+- Entry ID: `20260509T185311Z`
+- Recorded: `2026-05-09T18:53:11+00:00`
 
-Please revise the initial `earnmisc` implementation based on the following API and documentation requests.
+Please fix two issues in `xys_line()`.
 
 Read `AGENTS.md` first and follow it closely.
 
-Do not modify `tools/` unless explicitly necessary.
+Do not modify `tools/`.
 Do not run `make prompt`, `make response`, or `make record.commit`.
 Do not create Git commits.
 
-## Okabe--Ito colours
+## Problem 1: graphical parameters are not vectorised correctly
 
-The package should support both the original Okabe--Ito palette and an extended Okabe--Ito-style palette, as in the reference code.
+Currently, `xys_line()` ignores all but the first component of vector graphical parameters such as `col`, `lty`, and possibly `lwd`.
 
-Please inspect the relevant reference code in:
+For example:
 
-```text
-reference-code/okabe_ito_from_gaemr.R
+```r
+plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+xys_line(0, c(0.1, -0.1), 1,
+         col = c("blue", "red"),
+         lty = c("solid", "dotted"))
 ```
 
-Use it for guidance only. Do not copy blindly.
+should draw one solid blue line and one dotted red line, but currently both lines are solid blue.
+
+Please revise `xys_line()` so that graphical parameters supplied through `...` are handled sensibly when multiple lines are drawn.
 
 Requirements:
-- Make the original Okabe--Ito colours available.
-- Make the extended Okabe--Ito colours available.
-- Documentation should clearly distinguish the original palette from the extended palette.
-- The default behaviour should remain simple and unsurprising.
-- Preserve clear, stable names for colours.
-- Continue to support alpha cleanly using `grDevices::adjustcolor()` if already implemented.
-- Add or revise tests for original palette, extended palette, names, values, alpha handling, and input validation.
+- If a graphical parameter in `...` has length 1, recycle it for all lines.
+- If a graphical parameter in `...` has length equal to the number of lines, use the corresponding element for each line.
+- Use R’s ordinary recycling rules where appropriate.
+- Pass the correct scalar graphical parameters to each individual `graphics::abline()` call.
+- Preserve existing scalar behaviour.
 
-Please decide the cleanest API, but prefer keeping the existing names if possible:
+This should work for common `abline()` graphical parameters such as:
 
 ```r
-okabe_ito_colours()
-okabe_ito_palette()
+col
+lty
+lwd
 ```
 
-For example, it might be reasonable for one or both functions to have an argument such as `extended = FALSE`, but choose the cleanest design and document it clearly.
+but the implementation should not be unnecessarily restricted to only these names.
 
-## Named graphics parameters
+## Problem 2: infinite slopes should work
 
-Please add a general helper:
+Currently, `xys_line()` crashes when `slope = Inf`.
+
+A call such as:
 
 ```r
-named_par_list()
+xys_line(0.5, 0, Inf)
 ```
 
-This should return the full output of `graphics::par(no.readonly = TRUE)` or equivalent, but with vector-valued entries named sensibly where possible.
+should draw a vertical line through `x = 0.5`, equivalent to:
+
+```r
+graphics::abline(v = 0.5)
+```
 
 Requirements:
-- Preserve all standard `par()` entries.
-- Add names to common vector entries such as `usr`, `mar`, `oma`, `mai`, `omi`, `pin`, `plt`, `fig`, and similar where sensible.
-- Avoid over-engineering.
-- Keep the helper general-purpose.
-- Export it if it is useful as a standalone utility.
-- Add roxygen2 documentation and tests.
-
-The existing helpers:
+- `slope = Inf` should draw a vertical line at `x`.
+- `slope = -Inf` should also draw a vertical line at `x`.
+- For infinite slopes, `y` is irrelevant for plotting but should still be accepted for API consistency.
+- The invisible return value should remain useful.
+- For a scalar infinite-slope call, return something sensible and documented, for example:
 
 ```r
-named_par_usr()
-named_par_mar()
+c(intercept = NA_real_, slope = Inf)
 ```
 
-should either use `named_par_list()` internally where appropriate, or remain as simple focused helpers if that is cleaner.
+or include `x` if that is cleaner. Choose and document the design.
+- For vectorised calls, include enough information in the returned data frame to identify vertical lines, including `x`, `y`, `slope`, and `intercept`, with `intercept = NA_real_` for vertical lines.
+- Mixed finite and infinite slopes should work.
 
-## `plot_metadata()`
-
-Revise `plot_metadata()` so that it includes the named full par list produced by `named_par_list()`.
-
-For example, the returned metadata should include something like:
+Examples that should work:
 
 ```r
-par.list
+plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+xys_line(0, c(0.1, -0.1), 1,
+         col = c("blue", "red"),
+         lty = c("solid", "dotted"))
+
+plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+xys_line(c(-0.5, 0.5), 0, Inf,
+         col = c("blue", "red"),
+         lty = c("solid", "dotted"))
+
+plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+xys_line(0, 0, c(1, Inf),
+         col = c("blue", "red"),
+         lty = c("solid", "dotted"))
 ```
 
-where `par.list` is the named list returned by `named_par_list()`.
+## Tests
 
-Please keep `plot_metadata()` general-purpose and not tied to `agemortr`.
+Please add or revise tests for:
+- vectorised `col`;
+- vectorised `lty`;
+- vectorised `lwd` if straightforward;
+- scalar finite slope;
+- scalar infinite slope;
+- vectorised infinite slopes;
+- mixed finite and infinite slopes;
+- the invisible return values.
 
-Update documentation and tests accordingly.
+Avoid brittle graphics-device or image-comparison tests. Prefer testing the computed return values. If testing propagation of graphical parameters requires mocking or refactoring, keep the implementation simple and do not introduce heavy dependencies.
 
-## `xys_line()` vectorisation
+## Documentation
 
-Please check whether `xys_line()` currently supports vector input.
+Please update roxygen2 documentation and examples for `xys_line()` to show:
+- vectorised `x`, `y`, and `slope`;
+- vectorised graphical parameters such as `col` and `lty`;
+- infinite slopes for vertical lines.
 
-It should support vector arguments.
-
-Required behaviour:
-
-```r
-xys_line(0, c(0.1, -0.1), 1)
-```
-
-should draw two parallel lines with intercepts `0.1` and `-0.1`.
-
-If more than one of `x`, `y`, and `slope` is a vector, then all combinations should be plotted.
-
-For example, conceptually:
-
-```r
-xys_line(x = c(0, 1), y = c(0.1, -0.1), slope = c(1, 2))
-```
-
-should plot every combination of `x`, `y`, and `slope`.
-
-Requirements:
-- Use a clear and predictable implementation, probably based on `expand.grid()` or equivalent base R code.
-- Call `graphics::abline()` once per line.
-- Return the intercept and slope values invisibly in a useful structure.
-- For a scalar call, preserve the existing simple return if possible, or document any intentional change.
-- For vectorised calls, return enough information to identify all plotted lines.
-- Add examples showing scalar and vector use.
-- Add tests for scalar input, one vector argument, and multiple vector arguments.
-- Avoid brittle graphics-device tests; test the computed return values.
+Keep examples lightweight and check-friendly.
 
 ## Verification
 
@@ -128,12 +128,10 @@ make test
 make check
 ```
 
-If any Makefile targets are unavailable, use the closest direct R equivalents.
-
 Please report:
-1. What design choices you made.
-2. What files you changed.
-3. What functions were added or revised.
-4. What tests were added or revised.
-5. What verification commands you ran and their results.
-6. Any remaining TODOs or questions.
+1. What bug caused graphical parameters to use only the first value.
+2. How vector graphical parameters are now handled.
+3. How infinite slopes are now handled.
+4. What files changed.
+5. What tests were added or revised.
+6. What verification commands were run and their results.

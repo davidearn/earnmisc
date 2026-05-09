@@ -11,15 +11,20 @@ xys_line(x, y, slope, ...)
 
 \item{y}{Numeric vector giving y-coordinates of points on the lines.}
 
-\item{slope}{Numeric vector giving slopes of the lines.}
+\item{slope}{Numeric vector giving slopes of the lines. Infinite slopes draw
+vertical lines through \code{x}.}
 
-\item{...}{Additional graphical parameters passed to \code{\link[graphics:abline]{graphics::abline()}}.}
+\item{...}{Additional graphical parameters passed to \code{\link[graphics:abline]{graphics::abline()}}.
+When more than one line is drawn, vector graphical parameters are recycled
+across lines using R's usual recycling rules.}
 }
 \value{
 For scalar input, invisibly returns a named numeric vector with
-elements \code{intercept} and \code{slope}. For vector input, invisibly returns a
-data frame with columns \code{x}, \code{y}, \code{slope}, and \code{intercept}, one row per
-plotted line.
+elements \code{intercept} and \code{slope}; vertical lines have
+\code{intercept = NA_real_}. For vector input, invisibly returns a data frame
+with columns \code{x}, \code{y}, \code{slope}, and \code{intercept}, one row per plotted line.
+Any expanded graphical parameters are stored in the
+\code{graphics.parameters} attribute of the returned value.
 }
 \description{
 Draw straight lines through all combinations of \code{x}, \code{y}, and \code{slope}.
@@ -29,7 +34,11 @@ plot(1:10, 1:10)
 xys_line(3, 4, slope = 1)
 xys_line(5, 8, slope = -0.5, col = "red", lty = 2)
 
-plot(0:1, 0:1, type = "n")
-xys_line(0, c(0.1, -0.1), slope = 1, col = "grey")
+plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+xys_line(0, c(0.1, -0.1), slope = 1,
+         col = c("blue", "red"), lty = c("solid", "dotted"))
+
+plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+xys_line(c(-0.5, 0.5), 0, slope = Inf, col = c("blue", "red"))
 
 }
