@@ -2,29 +2,34 @@
 % Please edit documentation in R/xys_line.R
 \name{xys_line}
 \alias{xys_line}
-\title{Draw a line through a point with a specified slope}
+\title{Draw lines through points with specified slopes}
 \usage{
 xys_line(x, y, slope, ...)
 }
 \arguments{
-\item{x}{Numeric scalar giving the x-coordinate of a point on the line.}
+\item{x}{Numeric vector giving x-coordinates of points on the lines.}
 
-\item{y}{Numeric scalar giving the y-coordinate of a point on the line.}
+\item{y}{Numeric vector giving y-coordinates of points on the lines.}
 
-\item{slope}{Numeric scalar giving the slope of the line.}
+\item{slope}{Numeric vector giving slopes of the lines.}
 
 \item{...}{Additional graphical parameters passed to \code{\link[graphics:abline]{graphics::abline()}}.}
 }
 \value{
-Invisibly returns a named numeric vector with elements \code{intercept}
-and \code{slope}.
+For scalar input, invisibly returns a named numeric vector with
+elements \code{intercept} and \code{slope}. For vector input, invisibly returns a
+data frame with columns \code{x}, \code{y}, \code{slope}, and \code{intercept}, one row per
+plotted line.
 }
 \description{
-Draw a straight line through point \verb{(x, y)} with the specified slope.
+Draw straight lines through all combinations of \code{x}, \code{y}, and \code{slope}.
 }
 \examples{
 plot(1:10, 1:10)
 xys_line(3, 4, slope = 1)
 xys_line(5, 8, slope = -0.5, col = "red", lty = 2)
+
+plot(0:1, 0:1, type = "n")
+xys_line(0, c(0.1, -0.1), slope = 1, col = "grey")
 
 }

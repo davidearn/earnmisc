@@ -2,11 +2,14 @@
 % Please edit documentation in R/okabe_ito.R
 \name{okabe_ito_colours}
 \alias{okabe_ito_colours}
-\title{Okabe-Ito colours}
+\title{Okabe-Ito colour palettes}
 \usage{
-okabe_ito_colours(alpha = NULL)
+okabe_ito_colours(extended = FALSE, alpha = NULL)
 }
 \arguments{
+\item{extended}{Logical scalar. If \code{FALSE}, return the original eight-colour
+Okabe-Ito palette. If \code{TRUE}, append \code{grey} and \code{amber}.}
+
 \item{alpha}{Optional numeric scalar in \verb{[0, 1]} giving the alpha
 transparency to apply with \code{\link[grDevices:adjustcolor]{grDevices::adjustcolor()}}. If \code{NULL}, colours
 are returned as opaque hexadecimal RGB values.}
@@ -15,10 +18,12 @@ are returned as opaque hexadecimal RGB values.}
 A named character vector of hexadecimal colour values.
 }
 \description{
-Return the standard Okabe-Ito colourblind-friendly palette.
+Return the original Okabe-Ito colourblind-friendly palette, or an extended
+Okabe-Ito-style palette with two additional practical colours.
 }
 \examples{
 okabe_ito_colours()
+okabe_ito_colours(extended = TRUE)
 okabe_ito_colours(alpha = 0.5)
 
 }

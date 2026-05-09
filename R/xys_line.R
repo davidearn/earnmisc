@@ -1,36 +1,60 @@
-#' Draw a line through a point with a specified slope
+#' Draw lines through points with specified slopes
 #'
-#' Draw a straight line through point `(x, y)` with the specified slope.
+#' Draw straight lines through all combinations of `x`, `y`, and `slope`.
 #'
-#' @param x Numeric scalar giving the x-coordinate of a point on the line.
-#' @param y Numeric scalar giving the y-coordinate of a point on the line.
-#' @param slope Numeric scalar giving the slope of the line.
+#' @param x Numeric vector giving x-coordinates of points on the lines.
+#' @param y Numeric vector giving y-coordinates of points on the lines.
+#' @param slope Numeric vector giving slopes of the lines.
 #' @param ... Additional graphical parameters passed to [graphics::abline()].
 #'
-#' @return Invisibly returns a named numeric vector with elements `intercept`
-#'   and `slope`.
+#' @return For scalar input, invisibly returns a named numeric vector with
+#'   elements `intercept` and `slope`. For vector input, invisibly returns a
+#'   data frame with columns `x`, `y`, `slope`, and `intercept`, one row per
+#'   plotted line.
 #'
 #' @examples
 #' plot(1:10, 1:10)
 #' xys_line(3, 4, slope = 1)
 #' xys_line(5, 8, slope = -0.5, col = "red", lty = 2)
 #'
+#' plot(0:1, 0:1, type = "n")
+#' xys_line(0, c(0.1, -0.1), slope = 1, col = "grey")
+#'
 #' @export
 xys_line <- function(x, y, slope, ...) {
-  if (!is.numeric(x) || length(x) != 1L || is.na(x)) {
-    stop("`x` must be a numeric scalar.", call. = FALSE)
+  if (!is.numeric(x) || length(x) < 1L || anyNA(x)) {
+    stop("`x` must be a numeric vector with no missing values.", call. = FALSE)
   }
-  if (!is.numeric(y) || length(y) != 1L || is.na(y)) {
-    stop("`y` must be a numeric scalar.", call. = FALSE)
+  if (!is.numeric(y) || length(y) < 1L || anyNA(y)) {
+    stop("`y` must be a numeric vector with no missing values.", call. = FALSE)
   }
-  if (!is.numeric(slope) || length(slope) != 1L || is.na(slope)) {
-    stop("`slope` must be a numeric scalar.", call. = FALSE)
+  if (!is.numeric(slope) || length(slope) < 1L || anyNA(slope)) {
+    stop("`slope` must be a numeric vector with no missing values.", call. = FALSE)
   }
 
-  intercept <- y - slope * x
-  line.parameters <- c(intercept = intercept, slope = slope)
+  line.parameters <- expand.grid(
+    x = x,
+    y = y,
+    slope = slope,
+    KEEP.OUT.ATTRS = FALSE
+  )
+  line.parameters$intercept <- line.parameters$y - line.parameters$slope * line.parameters$x
 
-  graphics::abline(a = intercept, b = slope, ...)
+  for (line.number in seq_len(nrow(line.parameters))) {
+    graphics::abline(
+      a = line.parameters$intercept[line.number],
+      b = line.parameters$slope[line.number],
+      ...
+    )
+  }
+
+  if (nrow(line.parameters) == 1L) {
+    scalar.parameters <- c(
+      intercept = line.parameters$intercept,
+      slope = line.parameters$slope
+    )
+    return(invisible(scalar.parameters))
+  }
 
   invisible(line.parameters)
 }

@@ -13,7 +13,7 @@ across related R packages.
 The main utility families are:
 \itemize{
 \item Okabe-Ito colour palette helpers.
-\item Small base graphics helpers, including \code{xys_line()}.
+\item Small base graphics helpers, including vectorised \code{xys_line()}.
 \item Base graphics plot metadata helpers.
 }
 }

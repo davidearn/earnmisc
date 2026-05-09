@@ -1,117 +1,126 @@
 # Latest Codex Prompt
 
-- Entry ID: `20260509T180941Z`
-- Recorded: `2026-05-09T18:09:41+00:00`
+- Entry ID: `20260509T183521Z`
+- Recorded: `2026-05-09T18:35:21+00:00`
 
-I want to create the initial skeleton and first implementation of a new R package called `earnmisc`.
+Please revise the initial `earnmisc` implementation based on the following API and documentation requests.
 
-Please read `AGENTS.md` first and follow it closely.
+Read `AGENTS.md` first and follow it closely.
 
-Goal for this first pass:
-- Create a lean R package skeleton.
-- Implement the initial general-purpose utilities.
-- Add roxygen2 documentation.
-- Add testthat tests.
-- Ensure package-level help `?earnmisc` works.
-- Keep dependencies minimal.
+Do not modify `tools/` unless explicitly necessary.
+Do not run `make prompt`, `make response`, or `make record.commit`.
+Do not create Git commits.
 
-Initial exported functions to implement:
+## Okabe--Ito colours
+
+The package should support both the original Okabe--Ito palette and an extended Okabe--Ito-style palette, as in the reference code.
+
+Please inspect the relevant reference code in:
+
+```text
+reference-code/okabe_ito_from_gaemr.R
+```
+
+Use it for guidance only. Do not copy blindly.
+
+Requirements:
+- Make the original Okabe--Ito colours available.
+- Make the extended Okabe--Ito colours available.
+- Documentation should clearly distinguish the original palette from the extended palette.
+- The default behaviour should remain simple and unsurprising.
+- Preserve clear, stable names for colours.
+- Continue to support alpha cleanly using `grDevices::adjustcolor()` if already implemented.
+- Add or revise tests for original palette, extended palette, names, values, alpha handling, and input validation.
+
+Please decide the cleanest API, but prefer keeping the existing names if possible:
 
 ```r
 okabe_ito_colours()
 okabe_ito_palette()
-xys_line()
 ```
 
-Also consider implementing these if the design is simple and general-purpose:
+For example, it might be reasonable for one or both functions to have an argument such as `extended = FALSE`, but choose the cleanest design and document it clearly.
+
+## Named graphics parameters
+
+Please add a general helper:
+
+```r
+named_par_list()
+```
+
+This should return the full output of `graphics::par(no.readonly = TRUE)` or equivalent, but with vector-valued entries named sensibly where possible.
+
+Requirements:
+- Preserve all standard `par()` entries.
+- Add names to common vector entries such as `usr`, `mar`, `oma`, `mai`, `omi`, `pin`, `plt`, `fig`, and similar where sensible.
+- Avoid over-engineering.
+- Keep the helper general-purpose.
+- Export it if it is useful as a standalone utility.
+- Add roxygen2 documentation and tests.
+
+The existing helpers:
 
 ```r
 named_par_usr()
 named_par_mar()
-plot_metadata()
 ```
 
-Do not over-engineer. It is fine to leave plot metadata helpers minimal if the reference code suggests too much package-specific complexity.
+should either use `named_par_list()` internally where appropriate, or remain as simple focused helpers if that is cleaner.
 
-Important style requirements:
-- Function names use underscores.
-- Function arguments and local non-function object names use dots.
-- Comments at the start of lines begin with `##`.
-- End-of-line comments begin with `#`.
-- Use Canadian spelling in documentation, comments, messages, and warnings.
-- Prefer base R, `graphics`, `grDevices`, and `utils`.
-- Avoid tidyverse dependencies.
-- Use roxygen2.
-- Use testthat.
-- Export only generally useful utilities.
+## `plot_metadata()`
 
-For `xys_line()`:
+Revise `plot_metadata()` so that it includes the named full par list produced by `named_par_list()`.
+
+For example, the returned metadata should include something like:
 
 ```r
-xys_line(x, y, slope, ...)
+par.list
 ```
 
-should call something equivalent to:
+where `par.list` is the named list returned by `named_par_list()`.
+
+Please keep `plot_metadata()` general-purpose and not tied to `agemortr`.
+
+Update documentation and tests accordingly.
+
+## `xys_line()` vectorisation
+
+Please check whether `xys_line()` currently supports vector input.
+
+It should support vector arguments.
+
+Required behaviour:
 
 ```r
-graphics::abline(a = y - slope * x, b = slope, ...)
+xys_line(0, c(0.1, -0.1), 1)
 ```
 
-and should invisibly return something useful, preferably:
+should draw two parallel lines with intercepts `0.1` and `-0.1`.
+
+If more than one of `x`, `y`, and `slope` is a vector, then all combinations should be plotted.
+
+For example, conceptually:
 
 ```r
-c(intercept = y - slope * x, slope = slope)
+xys_line(x = c(0, 1), y = c(0.1, -0.1), slope = c(1, 2))
 ```
 
-For Okabe--Ito colours:
-- Provide the standard Okabe--Ito colourblind-friendly palette.
-- Use these names:
+should plot every combination of `x`, `y`, and `slope`.
 
-```text
-black
-orange
-sky_blue
-bluish_green
-yellow
-blue
-vermillion
-reddish_purple
-```
+Requirements:
+- Use a clear and predictable implementation, probably based on `expand.grid()` or equivalent base R code.
+- Call `graphics::abline()` once per line.
+- Return the intercept and slope values invisibly in a useful structure.
+- For a scalar call, preserve the existing simple return if possible, or document any intentional change.
+- For vectorised calls, return enough information to identify all plotted lines.
+- Add examples showing scalar and vector use.
+- Add tests for scalar input, one vector argument, and multiple vector arguments.
+- Avoid brittle graphics-device tests; test the computed return values.
 
-- Provide a function returning the full named palette.
-- Provide a function returning the first `n` colours.
-- Support `alpha` cleanly if possible, using `grDevices::adjustcolor()`.
+## Verification
 
-Repository notes:
-- `reference-code/` may contain useful reference material, but it is for inspection only.
-- Do not copy code blindly from `reference-code/`.
-- Reimplement clean, general-purpose versions suitable for `earnmisc`.
-- Ensure `reference-code/` is ignored by Git and excluded from R package builds.
-- The repository may contain `tools/` and `Makefile` copied from `agemortr`; these are development workflow files, not package functionality.
-- Do not modify `tools/` unless necessary.
-- Do not run `make prompt`, `make response`, or `make record.commit`.
-- Do not create Git commits.
-
-Please create or update these files as appropriate:
-
-```text
-DESCRIPTION
-NAMESPACE
-R/earnmisc-package.R
-R/okabe_ito.R
-R/xys_line.R
-R/plot_metadata.R
-tests/testthat.R
-tests/testthat/test-okabe_ito.R
-tests/testthat/test-xys_line.R
-tests/testthat/test-plot_metadata.R
-.Rbuildignore
-.gitignore
-README.md
-```
-
-Verification:
-- If the Makefile exists and the relevant targets are usable, run:
+After making changes, run:
 
 ```sh
 make document
@@ -119,17 +128,12 @@ make test
 make check
 ```
 
-- If Makefile targets are not yet usable, run the closest direct R equivalents, such as:
-
-```sh
-Rscript -e 'roxygen2::roxygenise()'
-Rscript -e 'testthat::test_local()'
-R CMD check .
-```
+If any Makefile targets are unavailable, use the closest direct R equivalents.
 
 Please report:
-1. What files you created or changed.
-2. What functions were implemented and exported.
-3. What tests were added.
-4. What verification commands were run and their results.
-5. Any assumptions or TODOs.
+1. What design choices you made.
+2. What files you changed.
+3. What functions were added or revised.
+4. What tests were added or revised.
+5. What verification commands you ran and their results.
+6. Any remaining TODOs or questions.

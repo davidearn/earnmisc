@@ -1,7 +1,10 @@
-#' Okabe-Ito colours
+#' Okabe-Ito colour palettes
 #'
-#' Return the standard Okabe-Ito colourblind-friendly palette.
+#' Return the original Okabe-Ito colourblind-friendly palette, or an extended
+#' Okabe-Ito-style palette with two additional practical colours.
 #'
+#' @param extended Logical scalar. If `FALSE`, return the original eight-colour
+#'   Okabe-Ito palette. If `TRUE`, append `grey` and `amber`.
 #' @param alpha Optional numeric scalar in `[0, 1]` giving the alpha
 #'   transparency to apply with [grDevices::adjustcolor()]. If `NULL`, colours
 #'   are returned as opaque hexadecimal RGB values.
@@ -10,10 +13,13 @@
 #'
 #' @examples
 #' okabe_ito_colours()
+#' okabe_ito_colours(extended = TRUE)
 #' okabe_ito_colours(alpha = 0.5)
 #'
 #' @export
-okabe_ito_colours <- function(alpha = NULL) {
+okabe_ito_colours <- function(extended = FALSE, alpha = NULL) {
+  validate_extended(extended)
+
   colours <- c(
     black = "#000000",
     orange = "#E69F00",
@@ -25,14 +31,24 @@ okabe_ito_colours <- function(alpha = NULL) {
     reddish_purple = "#CC79A7"
   )
 
+  if (extended) {
+    colours <- c(
+      colours,
+      grey = "#999999",
+      amber = "#EECC66"
+    )
+  }
+
   apply_alpha(colours, alpha = alpha)
 }
 
 #' Okabe-Ito palette
 #'
-#' Return the first `n` colours from the standard Okabe-Ito palette.
+#' Return the first `n` colours from an Okabe-Ito palette.
 #'
 #' @param n Integer scalar giving the number of colours to return.
+#' @param extended Logical scalar. If `FALSE`, use the original eight-colour
+#'   Okabe-Ito palette. If `TRUE`, use the extended palette.
 #' @param alpha Optional numeric scalar in `[0, 1]` giving the alpha
 #'   transparency to apply with [grDevices::adjustcolor()]. If `NULL`, colours
 #'   are returned as opaque hexadecimal RGB values.
@@ -41,21 +57,33 @@ okabe_ito_colours <- function(alpha = NULL) {
 #'
 #' @examples
 #' okabe_ito_palette(3)
+#' okabe_ito_palette(9, extended = TRUE)
 #' okabe_ito_palette(4, alpha = 0.75)
 #'
 #' @export
-okabe_ito_palette <- function(n = length(okabe_ito_colours()), alpha = NULL) {
+okabe_ito_palette <- function(n = length(okabe_ito_colours(extended = extended)),
+                              extended = FALSE,
+                              alpha = NULL) {
   if (!is.numeric(n) || length(n) != 1L || is.na(n) || n < 0 || n != floor(n)) {
     stop("`n` must be a non-negative integer scalar.", call. = FALSE)
   }
+  validate_extended(extended)
 
-  colours <- okabe_ito_colours(alpha = alpha)
+  colours <- okabe_ito_colours(extended = extended, alpha = alpha)
 
   if (n > length(colours)) {
     stop("`n` must be no larger than the number of available colours.", call. = FALSE)
   }
 
   colours[seq_len(n)]
+}
+
+validate_extended <- function(extended) {
+  if (!is.logical(extended) || length(extended) != 1L || is.na(extended)) {
+    stop("`extended` must be a logical scalar.", call. = FALSE)
+  }
+
+  invisible(extended)
 }
 
 apply_alpha <- function(colours, alpha = NULL) {

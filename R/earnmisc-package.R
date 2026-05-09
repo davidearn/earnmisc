@@ -6,7 +6,7 @@
 #' The main utility families are:
 #'
 #' * Okabe-Ito colour palette helpers.
-#' * Small base graphics helpers, including `xys_line()`.
+#' * Small base graphics helpers, including vectorised `xys_line()`.
 #' * Base graphics plot metadata helpers.
 #'
 #' @keywords internal

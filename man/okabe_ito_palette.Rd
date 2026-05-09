@@ -4,10 +4,17 @@
 \alias{okabe_ito_palette}
 \title{Okabe-Ito palette}
 \usage{
-okabe_ito_palette(n = length(okabe_ito_colours()), alpha = NULL)
+okabe_ito_palette(
+  n = length(okabe_ito_colours(extended = extended)),
+  extended = FALSE,
+  alpha = NULL
+)
 }
 \arguments{
 \item{n}{Integer scalar giving the number of colours to return.}
+
+\item{extended}{Logical scalar. If \code{FALSE}, use the original eight-colour
+Okabe-Ito palette. If \code{TRUE}, use the extended palette.}
 
 \item{alpha}{Optional numeric scalar in \verb{[0, 1]} giving the alpha
 transparency to apply with \code{\link[grDevices:adjustcolor]{grDevices::adjustcolor()}}. If \code{NULL}, colours
@@ -17,10 +24,11 @@ are returned as opaque hexadecimal RGB values.}
 A named character vector of \code{n} hexadecimal colour values.
 }
 \description{
-Return the first \code{n} colours from the standard Okabe-Ito palette.
+Return the first \code{n} colours from an Okabe-Ito palette.
 }
 \examples{
 okabe_ito_palette(3)
+okabe_ito_palette(9, extended = TRUE)
 okabe_ito_palette(4, alpha = 0.75)
 
 }
