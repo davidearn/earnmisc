@@ -4,26 +4,32 @@
 \alias{okabe_ito_colours}
 \title{Okabe-Ito colour palettes}
 \usage{
-okabe_ito_colours(extended = FALSE, alpha = NULL)
+okabe_ito_colours(extended = TRUE, alpha = NULL)
 }
 \arguments{
-\item{extended}{Logical scalar. If \code{FALSE}, return the original eight-colour
-Okabe-Ito palette. If \code{TRUE}, append \code{grey} and \code{amber}.}
+\item{extended}{Logical scalar. If \code{TRUE}, return the extended palette. If
+\code{FALSE}, return only the original eight-colour Okabe-Ito palette.}
 
 \item{alpha}{Optional numeric scalar in \verb{[0, 1]} giving the alpha
-transparency to apply with \code{\link[grDevices:adjustcolor]{grDevices::adjustcolor()}}. If \code{NULL}, colours
-are returned as opaque hexadecimal RGB values.}
+transparency to apply with \code{\link[=oi_alpha]{oi_alpha()}}. If \code{NULL}, colours are returned
+as opaque hexadecimal RGB values.}
 }
 \value{
 A named character vector of hexadecimal colour values.
 }
 \description{
-Return the original Okabe-Ito colourblind-friendly palette, or an extended
-Okabe-Ito-style palette with two additional practical colours.
+Return the extended Okabe-Ito-style palette by default, or only the original
+Okabe-Ito colourblind-friendly palette if requested.
+}
+\details{
+The first eight colours are the original Okabe-Ito colourblind-friendly
+palette. The extended palette appends \code{grey} and \code{amber}, which are
+convenience additions for plots where the original palette is not quite
+enough.
 }
 \examples{
 okabe_ito_colours()
-okabe_ito_colours(extended = TRUE)
+okabe_ito_colours(extended = FALSE)
 okabe_ito_colours(alpha = 0.5)
 
 }
