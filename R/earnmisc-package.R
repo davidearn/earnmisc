@@ -8,6 +8,7 @@
 #' * Okabe-Ito colour palette helpers.
 #' * Small base graphics helpers, including vectorised `xys_line()`.
 #' * Base graphics plot metadata helpers.
+#' * Lightweight TeX label helpers, including `nice_text()`.
 #'
 #' @keywords internal
 "_PACKAGE"

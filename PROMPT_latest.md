@@ -1,9 +1,9 @@
 # Latest Codex Prompt
 
-- Entry ID: `20260509T193506Z`
-- Recorded: `2026-05-09T19:35:06+00:00`
+- Entry ID: `20260509T225207Z`
+- Recorded: `2026-05-09T22:52:07+00:00`
 
-Please revise the Okabe--Ito colour helpers in `earnmisc`.
+Please revise the proposed `nice_text()` design so that `earnmisc` ships with default TeX macro and ignore-command files.
 
 Read `AGENTS.md` first and follow it closely.
 
@@ -11,145 +11,324 @@ Do not modify `tools/`.
 Do not run `make prompt`, `make response`, or `make record.commit`.
 Do not create Git commits.
 
-## Required changes
+## Goal
 
-### Default to the extended palette
+Add `nice_text()` to `earnmisc`, with package-supplied default TeX support files.
 
-Change the default behaviour so that the extended Okabe--Ito palette is used by default.
+The package should include default files that can be maintained over time:
 
-Specifically:
-
-```r
-okabe_ito_colours()
-okabe_ito_palette()
+```text
+inst/tex/default-macros.tex
+inst/tex/default-ignore-commands.txt
 ```
 
-should use `extended = TRUE` by default.
+These files should provide the basic TeX macro expansion and ignore-command behaviour that most users of `nice_text()` will want, without requiring them to configure anything.
 
-Documentation should clearly explain:
-- the first 8 colours are the original Okabe--Ito colourblind-friendly palette;
-- additional colours are extensions used for convenience;
-- users can request only the original palette with `extended = FALSE`.
+Users should also be able to supply their own files, either replacing the package defaults or appending to them.
 
-Please update tests accordingly.
+## Main API
 
-### Export convenient colour constants
-
-Export convenient named colour constants following the existing `gaemr` style.
-
-Please create and export objects such as:
+Please implement and export:
 
 ```r
-oi.black
-oi.orange
-oi.sky_blue
-oi.bluish_green
-oi.yellow
-oi.blue
-oi.vermillion
-oi.reddish_purple
-oi.grey
-oi.amber
+nice_text(
+  x,
+  use.tikz = NULL,
+  macros.file = NULL,
+  ignore.file = NULL,
+  append.macros = TRUE,
+  append.ignore = TRUE,
+  warn = TRUE
+)
 ```
 
-These should be character strings containing the corresponding hex colours.
+Use this exact API unless there is a strong reason to adjust it.
 
-Requirements:
-- Export these objects.
-- Document them together in a single roxygen2 help topic, probably something like `?oi_colours`.
-- Keep the names stable.
-- Ensure these objects agree exactly with `okabe_ito_colours(extended = TRUE)`.
-- Add tests.
+## Default package files
 
-Do not add support for quoted pseudo-colour names such as:
+Add package default files:
 
-```r
-col = "oi.orange"
+```text
+inst/tex/default-macros.tex
+inst/tex/default-ignore-commands.txt
 ```
 
-The intended plotting idiom is:
+After installation, these should be accessed with:
 
 ```r
-col = oi.orange
+system.file("tex", "default-macros.tex", package = "earnmisc")
+system.file("tex", "default-ignore-commands.txt", package = "earnmisc")
 ```
 
-where `oi.orange` evaluates to a valid R colour string.
+The default macro file should include a small, conservative set of generally useful macros, for example definitions related to common plot-label notation. Include `\Rn` support if the underlying macros are defined, for example:
 
-### Add alpha helper functions
+```tex
+\newcommand{\R}{\mathcal R}
+\newcommand{\Rn}{\R_0}
+```
 
-Please add clean helpers for alpha-adjusted colours without creating many exported alpha-specific objects.
+The default ignore-command file should include common TeX commands that should be removed or simplified for non-tikz graphics devices, such as:
 
-Preferred API:
+```text
+\mathrm
+\mathsf
+\mathbf
+\mathit
+\textrm
+\textsf
+\textbf
+\textit
+\quad
+\qquad
+\,
+\:
+\;
+\!
+```
+
+Keep both files conservative. This is not intended to be a full TeX system.
+
+## User-supplied files
+
+Users should be able to provide additional macro and ignore files with:
 
 ```r
-oi_alpha(colour, alpha)
-oi_colour(name, alpha = NULL, extended = TRUE)
+nice_text(x, macros.file = "my-macros.tex")
+nice_text(x, ignore.file = "my-ignore-commands.txt")
+```
+
+The default should be to append user-supplied files to the package defaults:
+
+```r
+append.macros = TRUE
+append.ignore = TRUE
+```
+
+This means:
+- package defaults are read first;
+- user-supplied files are read second;
+- user definitions may override package defaults if the same macro is defined again.
+
+If `append.macros = FALSE`, use only `macros.file`.
+
+If `append.ignore = FALSE`, use only `ignore.file`.
+
+If `macros.file = NULL`, check:
+
+```r
+getOption("earnmisc.tex_macros_file")
+```
+
+If that option is set, treat it as the user-supplied macros file.
+
+If `ignore.file = NULL`, check:
+
+```r
+getOption("earnmisc.tex_ignore_file")
+```
+
+If that option is set, treat it as the user-supplied ignore file.
+
+The package defaults should still be used unless the corresponding append argument is `FALSE`.
+
+## Helper functions for inspection
+
+Please add easy ways to inspect the active and default TeX support lists.
+
+Implement and export these functions:
+
+```r
+nice_text_default_macros_file()
+nice_text_default_ignore_file()
+nice_text_macros(macros.file = NULL, append.macros = TRUE)
+nice_text_ignore_commands(ignore.file = NULL, append.ignore = TRUE)
 ```
 
 Suggested behaviour:
 
+### `nice_text_default_macros_file()`
+
+Return the path to the installed package default macros file.
+
+### `nice_text_default_ignore_file()`
+
+Return the path to the installed package default ignore-command file.
+
+### `nice_text_macros()`
+
+Return the currently active no-argument macro definitions as a named character vector or data frame.
+
+It should include:
+- package defaults;
+- user option file from `getOption("earnmisc.tex_macros_file")`, if set;
+- explicit `macros.file`, if supplied;
+- user definitions appended or replacing defaults according to `append.macros`.
+
+Document the exact return type.
+
+### `nice_text_ignore_commands()`
+
+Return the currently active ignore-command list as a character vector.
+
+It should include:
+- package defaults;
+- user option file from `getOption("earnmisc.tex_ignore_file")`, if set;
+- explicit `ignore.file`, if supplied;
+- user commands appended or replacing defaults according to `append.ignore`.
+
+Document the exact return type.
+
+## `use.tikz` behaviour
+
+If `use.tikz` is `TRUE`, return `x` unchanged.
+
+If `use.tikz` is `FALSE`, preprocess `x` using macros and ignore-command rules, then convert with `latex2exp::TeX()` when `latex2exp` is available.
+
+If `use.tikz = NULL`, look for an object called `use.tikz` in the calling environment.
+
+Suggested behaviour:
+- If the calling environment contains a scalar logical object named `use.tikz`, use that value.
+- Otherwise default to `FALSE`.
+- Validate that `use.tikz` is ultimately a scalar logical value.
+
+## Dependencies
+
+Do not put `latex2exp` in `Imports`.
+
+Use it conditionally via:
+
 ```r
-oi_alpha(oi.orange, 0.023)
-oi_colour("orange", alpha = 0.023)
-oi_colour("sky_blue", alpha = 0.4)
+requireNamespace("latex2exp", quietly = TRUE)
 ```
 
-Requirements for `oi_alpha()`:
-- Accept one or more actual R colour values, such as `oi.orange`, `"#E69F00"`, or `"orange"`.
-- Accept `alpha`.
-- Use `grDevices::adjustcolor()`.
-- Return alpha-adjusted colours.
-- Validate `alpha` sensibly.
+Add `latex2exp` to `Suggests` if needed.
 
-Requirements for `oi_colour()`:
-- Accept one or more Okabe--Ito palette colour names, such as `"orange"` or `"sky_blue"`.
-- Do not treat strings like `"oi.orange"` as special.
-- Use names from `okabe_ito_colours(extended = extended)`.
-- Support `alpha = NULL` for unmodified colours.
-- Support numeric `alpha` using `oi_alpha()`.
-- Return named colours where sensible.
-- Give clear errors for unknown names.
-- Add lightweight examples.
+If `latex2exp` is not available and `use.tikz = FALSE`, return the preprocessed character vector rather than failing.
 
-Do not create exported objects such as `oi.orange.023`. Instead, document that:
+## TeX macro expansion
 
-```r
-oi_alpha(oi.orange, 0.023)
+Support simple no-argument definitions of the form:
+
+```tex
+\newcommand{\foo}{replacement}
+\renewcommand{\foo}{replacement}
+\def\foo{replacement}
 ```
 
-or
+Requirements:
+- Support no-argument macros only in this first implementation.
+- Recursive expansion is useful, but protect against infinite loops with a small maximum number of passes.
+- Ignore unsupported macro definitions rather than failing.
+- Give clear warnings only when `warn = TRUE`.
+- Keep the parser simple and well tested; do not attempt to implement full TeX.
 
-```r
-oi_colour("orange", alpha = 0.023)
+Example:
+
+```tex
+\newcommand{\R}{\mathcal R}
+\newcommand{\Rn}{\R_0}
 ```
 
-is the supported way to obtain an alpha-adjusted version.
+should allow:
+
+```r
+nice_text("$\\Rn$")
+```
+
+to expand before non-tikz conversion.
+
+## Ignored TeX commands for non-tikz devices
+
+When `use.tikz = FALSE`, unsupported TeX commands should not leak into plot labels as plain text.
+
+For example:
+
+```r
+nice_text("$A_{\\mathrm i}$")
+```
+
+should not produce a label containing the literal text `mathrm`.
+
+Requirements:
+- Commands like `\mathrm{...}`, `\mathsf{...}`, `\mathbf{...}`, `\mathit{...}`, and similar one-argument style wrappers should keep their contents and remove the command.
+- Commands like `\quad`, `\,`, `\:`, `\;`, `\!`, and similar spacing commands should be removed.
+- Keep this conservative. Do not rewrite mathematical meaning.
+- Apply this only when `use.tikz = FALSE`.
+
+For commands listed in ignore files:
+- one-argument wrapper commands such as `\foo{bar}` should become `bar`;
+- bare commands such as `\foo` should be removed.
 
 ## Documentation
 
-Update roxygen2 documentation for:
-- `okabe_ito_colours()`;
-- `okabe_ito_palette()`;
-- the exported `oi.*` colour constants;
-- `oi_alpha()`;
-- `oi_colour()`.
+Add roxygen2 documentation for:
+- `nice_text()`;
+- `nice_text_default_macros_file()`;
+- `nice_text_default_ignore_file()`;
+- `nice_text_macros()`;
+- `nice_text_ignore_commands()`.
 
-Documentation should use Canadian spelling.
+The documentation should explain:
+- tikz versus non-tikz behaviour;
+- how `use.tikz = NULL` is resolved from the calling environment;
+- the package default TeX support files;
+- how user files append to or replace defaults;
+- the package options `earnmisc.tex_macros_file` and `earnmisc.tex_ignore_file`;
+- that this is a lightweight helper, not a full TeX parser.
 
-Examples should be lightweight and check-friendly.
+Use Canadian spelling.
+
+Examples should be lightweight and check-friendly. Use `tempfile()` for examples involving user files.
+
+Update package-level documentation if appropriate.
 
 ## Tests
 
-Please add or revise tests for:
-- default extended palette behaviour;
-- `extended = FALSE`;
-- exported `oi.*` constants;
-- consistency between constants and `okabe_ito_colours(extended = TRUE)`;
-- `oi_alpha()`;
-- `oi_colour()`;
-- alpha validation;
-- unknown colour-name errors;
-- ensuring `"oi.orange"` is not treated as a valid palette colour name.
+Add focused `testthat` tests for:
+- `use.tikz = TRUE` returns input unchanged;
+- explicit `use.tikz = FALSE`;
+- `use.tikz = NULL` finds a scalar logical `use.tikz` in the calling environment;
+- default `use.tikz = NULL` falls back to `FALSE`;
+- package default macros file exists;
+- package default ignore-command file exists;
+- `nice_text_macros()` returns package defaults;
+- `nice_text_ignore_commands()` returns package defaults;
+- simple macro expansion from the package default file;
+- simple macro expansion from a temporary user file appended to defaults;
+- user macro overriding a package default when appended;
+- replacing defaults with `append.macros = FALSE`;
+- ignored wrapper commands such as `\mathrm{...}`;
+- ignored spacing commands such as `\quad`;
+- ignore commands from a temporary user ignore file appended to defaults;
+- replacing default ignore commands with `append.ignore = FALSE`;
+- vector input preserves length;
+- behaviour when `latex2exp` is unavailable if this can be tested cleanly without brittle mocking.
+
+Avoid brittle tests that depend too much on the exact internal structure of `latex2exp` output. It is fine to test internal preprocessing helpers if needed.
+
+## Internal helpers
+
+It is fine to add unexported internal helpers such as:
+
+```r
+resolve_use_tikz()
+nice_text_file_paths()
+read_tex_macros()
+expand_tex_macros()
+read_tex_ignore_commands()
+clean_tex_for_latex2exp()
+```
+
+Keep them simple and do not export them unless there is a clear reason.
+
+## Package metadata
+
+Update `DESCRIPTION` if needed.
+
+Likely:
+- add `latex2exp` to `Suggests`, not `Imports`.
+
+Make sure files under `inst/tex/` are included in the package build.
 
 ## Verification
 
@@ -162,9 +341,12 @@ make check
 ```
 
 Please report:
-1. What API changes you made.
-2. What colour constants were exported.
-3. How alpha-adjusted colours are now obtained.
-4. What files changed.
-5. What tests were added or revised.
-6. What verification commands were run and their results.
+1. What API you implemented.
+2. Where the package default TeX support files live.
+3. How user files append to or replace package defaults.
+4. How to inspect the active and default macro and ignore lists.
+5. How `use.tikz = NULL` is resolved.
+6. What files changed.
+7. What tests were added.
+8. What verification commands were run and their results.
+9. Any limitations or TODOs.

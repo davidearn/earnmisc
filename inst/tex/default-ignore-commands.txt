@@ -1,0 +1,17 @@
+# Commands simplified by earnmisc::nice_text() for non-tikz devices.
+\mathrm
+\mathsf
+\mathbf
+\mathit
+\mathcal
+\mathbb
+\textrm
+\textsf
+\textbf
+\textit
+\quad
+\qquad
+\,
+\:
+\;
+\!

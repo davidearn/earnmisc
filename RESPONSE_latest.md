@@ -1,47 +1,44 @@
 # Latest Codex Response Summary
 
-- Entry ID: `20260509T193506Z`
-- Recorded: `2026-05-09T19:41:36+00:00`
+- Entry ID: `20260509T225207Z`
+- Recorded: `2026-05-09T23:08:05+00:00`
 
-Implemented the Okabe-Ito revisions.
+Implemented `nice_text()` and the TeX support files.
 
-API changes:
-- `okabe_ito_colours()` now defaults to `extended = TRUE`.
-- `okabe_ito_palette()` now defaults to the extended palette and returns 10 colours by default.
-- `extended = FALSE` returns only the original 8-colour Okabe-Ito palette.
-- Added `oi_alpha(colour, alpha)` for alpha-adjusting actual R colour values.
-- Added `oi_colour(name, alpha = NULL, extended = TRUE)` for selecting palette colours by palette name.
+API added:
+- `nice_text()`
+- `nice_text_default_macros_file()`
+- `nice_text_default_ignore_file()`
+- `nice_text_macros()`
+- `nice_text_ignore_commands()`
 
-Exported constants:
-`oi.black`, `oi.orange`, `oi.sky_blue`, `oi.bluish_green`, `oi.yellow`, `oi.blue`, `oi.vermillion`, `oi.reddish_purple`, `oi.grey`, `oi.amber`.
+Default support files live at:
+- [inst/tex/default-macros.tex](/Users/earn/r/earnmisc/inst/tex/default-macros.tex)
+- [inst/tex/default-ignore-commands.txt](/Users/earn/r/earnmisc/inst/tex/default-ignore-commands.txt)
 
-Alpha-adjusted colours are now obtained with:
-```r
-oi_alpha(oi.orange, 0.023)
-oi_colour("orange", alpha = 0.023)
-```
-No pseudo-colour strings like `"oi.orange"` are supported.
+User files append by default. Package defaults are read first, option files second, explicit user files third, so later definitions can override earlier ones. `append.macros = FALSE` or `append.ignore = FALSE` omits the package defaults and uses only user files.
+
+Inspection helpers:
+- `nice_text_default_macros_file()` and `nice_text_default_ignore_file()` return default file paths.
+- `nice_text_macros()` returns active no-argument macros as a named character vector.
+- `nice_text_ignore_commands()` returns active ignored TeX commands as a character vector.
+
+`use.tikz = NULL` now checks for a scalar logical `use.tikz` in the calling environment; if absent, it defaults to `FALSE`.
 
 Changed files:
-- [R/okabe_ito.R](/Users/earn/r/earnmisc/R/okabe_ito.R)
-- [tests/testthat/test-okabe_ito.R](/Users/earn/r/earnmisc/tests/testthat/test-okabe_ito.R)
+- [DESCRIPTION](/Users/earn/r/earnmisc/DESCRIPTION): added `latex2exp` to `Suggests`.
+- [R/nice_text.R](/Users/earn/r/earnmisc/R/nice_text.R)
+- [R/earnmisc-package.R](/Users/earn/r/earnmisc/R/earnmisc-package.R)
 - [NAMESPACE](/Users/earn/r/earnmisc/NAMESPACE)
-- generated docs: `man/okabe_ito_colours.Rd`, `man/okabe_ito_palette.Rd`, `man/oi_colours.Rd`, `man/oi_alpha.Rd`, `man/oi_colour.Rd`
+- `inst/tex/*`
+- generated `man/nice_text*.Rd`
+- [tests/testthat/test-nice_text.R](/Users/earn/r/earnmisc/tests/testthat/test-nice_text.R)
 
-Tests added/revised for:
-- extended palette as default;
-- `extended = FALSE`;
-- exported `oi.*` constants;
-- constant/palette consistency;
-- `oi_alpha()`;
-- `oi_colour()`;
-- alpha validation;
-- unknown colour names;
-- `"oi.orange"` not being treated as a palette name.
+Tests added for tikz/non-tikz handling, default files, macro parsing/overrides, option files, ignore-command cleanup, append/replacement behaviour, vector length preservation, and `use.tikz` validation.
 
 Verification:
 - `make document`: passed.
 - `make test`: passed.
 - `make check`: passed with `Status: OK`.
 
-I left the pre-existing unrelated dirty files alone: `PROMPT_latest.md`, `PROMPTS_used.md`, and `sandbox/explore.R`.
+Limitations: this intentionally supports only simple no-argument TeX macros and conservative command cleanup. It is not a full TeX parser.

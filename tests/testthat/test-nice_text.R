@@ -1,0 +1,155 @@
+test_that("nice_text returns input unchanged for tikz output", {
+  input <- c("$\\Rn$", "$A_{\\mathrm i}$")
+
+  expect_identical(nice_text(input, use.tikz = TRUE), input)
+})
+
+test_that("nice_text accepts explicit non-tikz output", {
+  result <- nice_text("$\\Rn$", use.tikz = FALSE, warn = FALSE)
+
+  expect_length(result, 1)
+})
+
+test_that("use.tikz NULL resolves from the calling environment", {
+  use.tikz <- TRUE
+  input <- "$\\Rn$"
+
+  expect_identical(nice_text(input), input)
+})
+
+test_that("use.tikz NULL falls back to FALSE", {
+  expect_false(resolve_use_tikz(NULL, new.env(parent = emptyenv())))
+})
+
+test_that("default TeX support files exist", {
+  expect_true(file.exists(nice_text_default_macros_file()))
+  expect_true(file.exists(nice_text_default_ignore_file()))
+})
+
+test_that("nice_text_macros returns package defaults", {
+  macros <- nice_text_macros()
+
+  expect_named(macros, c("R", "Rn", "I", "E", "dd"))
+  expect_identical(unname(macros["R"]), "\\mathcal R")
+  expect_identical(unname(macros["Rn"]), "\\R_0")
+})
+
+test_that("nice_text_ignore_commands returns package defaults", {
+  commands <- nice_text_ignore_commands()
+
+  expect_true("\\mathrm" %in% commands)
+  expect_true("\\mathsf" %in% commands)
+  expect_true("\\quad" %in% commands)
+  expect_true("\\," %in% commands)
+})
+
+test_that("default macro expansion is recursive and bounded", {
+  macros <- nice_text_macros()
+
+  expect_identical(expand_tex_macros("$\\Rn$", macros), "$\\mathcal R_0$")
+})
+
+test_that("temporary user macros append to defaults", {
+  macros.file <- tempfile(fileext = ".tex")
+  writeLines("\\newcommand{\\foo}{bar}", macros.file)
+
+  macros <- nice_text_macros(macros.file = macros.file)
+
+  expect_identical(unname(macros["R"]), "\\mathcal R")
+  expect_identical(unname(macros["foo"]), "bar")
+})
+
+test_that("temporary user macros override defaults when appended", {
+  macros.file <- tempfile(fileext = ".tex")
+  writeLines("\\renewcommand{\\R}{R}", macros.file)
+
+  macros <- nice_text_macros(macros.file = macros.file)
+
+  expect_identical(unname(macros["R"]), "R")
+  expect_identical(expand_tex_macros("$\\Rn$", macros), "$R_0$")
+})
+
+test_that("append.macros FALSE replaces package defaults", {
+  macros.file <- tempfile(fileext = ".tex")
+  writeLines("\\newcommand{\\foo}{bar}", macros.file)
+
+  macros <- nice_text_macros(macros.file = macros.file, append.macros = FALSE)
+
+  expect_named(macros, "foo")
+  expect_identical(unname(macros["foo"]), "bar")
+})
+
+test_that("macro option file is included before explicit user file", {
+  option.file <- tempfile(fileext = ".tex")
+  explicit.file <- tempfile(fileext = ".tex")
+  writeLines("\\newcommand{\\foo}{option}", option.file)
+  writeLines("\\renewcommand{\\foo}{explicit}", explicit.file)
+  old.options <- options(earnmisc.tex_macros_file = option.file)
+  on.exit(options(old.options))
+
+  macros <- nice_text_macros(macros.file = explicit.file)
+
+  expect_identical(unname(macros["foo"]), "explicit")
+})
+
+test_that("ignored wrapper and spacing commands are cleaned", {
+  commands <- nice_text_ignore_commands()
+
+  expect_identical(
+    clean_tex_for_latex2exp("$A_{\\mathrm{i}}$", commands),
+    "$A_{i}$"
+  )
+  expect_identical(
+    clean_tex_for_latex2exp("$A\\quad B\\,C$", commands),
+    "$A BC$"
+  )
+})
+
+test_that("temporary user ignore commands append to defaults", {
+  ignore.file <- tempfile()
+  writeLines("\\foo", ignore.file)
+
+  commands <- nice_text_ignore_commands(ignore.file = ignore.file)
+
+  expect_true("\\mathrm" %in% commands)
+  expect_true("\\foo" %in% commands)
+  expect_identical(clean_tex_for_latex2exp("$\\foo{bar}$", commands), "$bar$")
+})
+
+test_that("append.ignore FALSE replaces package defaults", {
+  ignore.file <- tempfile()
+  writeLines("\\foo", ignore.file)
+
+  commands <- nice_text_ignore_commands(ignore.file = ignore.file, append.ignore = FALSE)
+
+  expect_identical(commands, "\\foo")
+  expect_identical(clean_tex_for_latex2exp("$\\mathrm{i}$", commands), "$\\mathrm{i}$")
+  expect_identical(clean_tex_for_latex2exp("$\\foo{i}$", commands), "$i$")
+})
+
+test_that("ignore option file is included before explicit user file", {
+  option.file <- tempfile()
+  explicit.file <- tempfile()
+  writeLines("\\foo", option.file)
+  writeLines("\\bar", explicit.file)
+  old.options <- options(earnmisc.tex_ignore_file = option.file)
+  on.exit(options(old.options))
+
+  commands <- nice_text_ignore_commands(ignore.file = explicit.file)
+
+  expect_true("\\foo" %in% commands)
+  expect_true("\\bar" %in% commands)
+})
+
+test_that("nice_text preprocessing preserves vector length", {
+  input <- c("$\\Rn$", "$A_{\\mathrm{i}}$")
+  output <- nice_text_preprocess(input, warn = FALSE)
+
+  expect_identical(length(output), length(input))
+  expect_false(any(grepl("mathrm", output, fixed = TRUE)))
+})
+
+test_that("nice_text validates use.tikz", {
+  expect_error(nice_text("x", use.tikz = c(TRUE, FALSE)), "`use.tikz`")
+  expect_error(nice_text("x", use.tikz = NA), "`use.tikz`")
+})
