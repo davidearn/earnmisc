@@ -183,5 +183,7 @@ During `R CMD check`, R printed repository access warnings while checking depend
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260509T180941Z -->
-_Pending._
+- Recorded: `2026-05-09T18:13:15+00:00`
+- Hash: `3d693b882b69f9d36da22d66553e6b43990781c5`
+- Subject: Initialize earnmisc package skeleton and utility functions
 <!-- codex-workflow-commit-end: 20260509T180941Z -->
