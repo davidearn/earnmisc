@@ -785,5 +785,7 @@ I left the pre-existing unrelated dirty files alone: `PROMPT_latest.md`, `PROMPT
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260509T193506Z -->
-_Pending._
+- Recorded: `2026-05-09T19:42:06+00:00`
+- Hash: `d226a32c5e0290eb4df60fec67ac9f792f088620`
+- Subject: Add Okabe-Ito constants and alpha helpers
 <!-- codex-workflow-commit-end: 20260509T193506Z -->
