@@ -1191,5 +1191,7 @@ Limitations: this intentionally supports only simple no-argument TeX macros and 
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260509T225207Z -->
-_Pending._
+- Recorded: `2026-05-09T23:08:50+00:00`
+- Hash: `852e2ea19c6a033aa835957eeaff5570335a00f3`
+- Subject: Add nice_text TeX label helper
 <!-- codex-workflow-commit-end: 20260509T225207Z -->
