@@ -8,8 +8,18 @@ test_that("recursive macro expansion works in tikz mode", {
   expect_identical(nice_text("$\\tFoIpeak$", use.tikz = TRUE), "$\\hat{\\tilde{F}}$")
   expect_identical(
     nice_text("$\\Xkm$", use.tikz = TRUE),
-    "$\\tilde{X}_{\\text{\\scalebox{0.6}{\\mathrm{KM}}}}$"
+    "$\\tilde{X}_{\\mathrm{KM}}$"
   )
+})
+
+test_that("tikz mode expands KM macros without text or scalebox", {
+  macros <- nice_text_macros()
+  km.labels <- nice_text(c("$\\lambdakm$", "$\\Xkm$", "$\\Ykm$", "$\\Zkm$"), use.tikz = TRUE)
+
+  expect_identical(unname(macros["kmsubscript"]), "\\mathrm{KM}")
+  expect_identical(km.labels[1], "$\\lambda_{\\mathrm{KM}}$")
+  expect_false(any(grepl("\\text", km.labels, fixed = TRUE)))
+  expect_false(any(grepl("\\scalebox", km.labels, fixed = TRUE)))
 })
 
 test_that("tikz mode preserves ignored commands and returns character strings", {
@@ -123,7 +133,7 @@ test_that("default macro expansion is recursive and bounded", {
   expect_identical(expand_tex_macros("$\\tFoIpeak$", macros), "$\\hat{\\tilde{F}}$")
   expect_identical(
     expand_tex_macros("$\\Xkm$", macros),
-    "$\\tilde{X}_{\\text{\\scalebox{0.6}{\\mathrm{KM}}}}$"
+    "$\\tilde{X}_{\\mathrm{KM}}$"
   )
 })
 
