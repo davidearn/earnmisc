@@ -129,10 +129,12 @@ nice_text_default_ignore_file <- function() {
 #'
 #' Return the active no-argument TeX macro definitions used by `nice_text()`.
 #'
-#' Package defaults are read from `inst/tex/default-macros.tex`. If the option
-#' `earnmisc.tex_macros_file` is set, that file is read after the defaults.
-#' If `macros.file` is supplied, it is read after the option file. Later
-#' definitions override earlier definitions with the same macro name. Set
+#' Package defaults are read from the curated earnmisc file
+#' `inst/tex/default-macros.tex`. This file is intended for stable
+#' cross-package plot-label notation, not as a full manuscript preamble. If the
+#' option `earnmisc.tex_macros_file` is set, that file is read after the
+#' defaults. If `macros.file` is supplied, it is read after the option file.
+#' Later definitions override earlier definitions with the same macro name. Set
 #' `append.macros = FALSE` to omit the package defaults.
 #'
 #' @param macros.file Optional path to a user TeX macro file. If `NULL`, only

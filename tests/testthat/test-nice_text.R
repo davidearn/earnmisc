@@ -28,10 +28,66 @@ test_that("default TeX support files exist", {
 
 test_that("nice_text_macros returns package defaults", {
   macros <- nice_text_macros()
+  expected.names <- c(
+    "R",
+    "Rn",
+    "inc",
+    "FoI",
+    "kmsubscript",
+    "Xkm",
+    "Ykm",
+    "Zkm",
+    "tX",
+    "tY",
+    "tZ",
+    "tinc",
+    "xp",
+    "xm",
+    "zp",
+    "zm",
+    "xpm",
+    "xmp",
+    "Xpm",
+    "Xp",
+    "Xm",
+    "lamp",
+    "lamm",
+    "lampm",
+    "lammp",
+    "lambdakm",
+    "xpeak",
+    "ypeak",
+    "zpeak",
+    "taupeak",
+    "taupeakkm",
+    "ypeakkm",
+    "xpeakkm",
+    "tFoIpeak",
+    "tincpeak",
+    "aoi",
+    "Wp",
+    "Wm",
+    "Wpm",
+    "tauinit",
+    "xinit",
+    "yinit",
+    "zinit",
+    "Oh",
+    "reals",
+    "integers",
+    "naturals",
+    "Tinf",
+    "Tlat",
+    "xin"
+  )
 
-  expect_named(macros, c("R", "Rn", "I", "E", "dd"))
+  expect_named(macros, expected.names)
   expect_identical(unname(macros["R"]), "\\mathcal R")
   expect_identical(unname(macros["Rn"]), "\\R_0")
+  expect_identical(unname(macros["FoI"]), "F")
+  expect_false("I" %in% names(macros))
+  expect_false("E" %in% names(macros))
+  expect_false("dd" %in% names(macros))
 })
 
 test_that("nice_text_ignore_commands returns package defaults", {
@@ -47,6 +103,19 @@ test_that("default macro expansion is recursive and bounded", {
   macros <- nice_text_macros()
 
   expect_identical(expand_tex_macros("$\\Rn$", macros), "$\\mathcal R_0$")
+  expect_identical(expand_tex_macros("$\\tinc$", macros), "$\\tilde{\\iota}$")
+  expect_identical(expand_tex_macros("$\\tFoIpeak$", macros), "$\\hat{\\tilde{F}}$")
+  expect_identical(
+    expand_tex_macros("$\\Xkm$", macros),
+    "$\\tilde{X}_{\\text{\\scalebox{0.6}{\\mathrm{KM}}}}$"
+  )
+})
+
+test_that("inline comments do not enter macro replacements", {
+  macros <- nice_text_macros()
+
+  expect_identical(unname(macros["xp"]), "x^{+}")
+  expect_identical(expand_tex_macros("$\\xp$", macros), "$x^{+}$")
 })
 
 test_that("temporary user macros append to defaults", {

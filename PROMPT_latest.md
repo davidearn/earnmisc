@@ -1,9 +1,9 @@
 # Latest Codex Prompt
 
-- Entry ID: `20260509T225207Z`
-- Recorded: `2026-05-09T22:52:07+00:00`
+- Entry ID: `20260510T044611Z`
+- Recorded: `2026-05-10T04:46:11+00:00`
 
-Please revise the proposed `nice_text()` design so that `earnmisc` ships with default TeX macro and ignore-command files.
+Please update the default TeX macro support for `earnmisc::nice_text()`.
 
 Read `AGENTS.md` first and follow it closely.
 
@@ -13,322 +13,145 @@ Do not create Git commits.
 
 ## Goal
 
-Add `nice_text()` to `earnmisc`, with package-supplied default TeX support files.
+Replace the current package default macro file with my curated default macro list.
 
-The package should include default files that can be maintained over time:
-
-```text
-inst/tex/default-macros.tex
-inst/tex/default-ignore-commands.txt
-```
-
-These files should provide the basic TeX macro expansion and ignore-command behaviour that most users of `nice_text()` will want, without requiring them to configure anything.
-
-Users should also be able to supply their own files, either replacing the package defaults or appending to them.
-
-## Main API
-
-Please implement and export:
-
-```r
-nice_text(
-  x,
-  use.tikz = NULL,
-  macros.file = NULL,
-  ignore.file = NULL,
-  append.macros = TRUE,
-  append.ignore = TRUE,
-  warn = TRUE
-)
-```
-
-Use this exact API unless there is a strong reason to adjust it.
-
-## Default package files
-
-Add package default files:
+The file is:
 
 ```text
 inst/tex/default-macros.tex
-inst/tex/default-ignore-commands.txt
 ```
 
-After installation, these should be accessed with:
+This file should reflect my stable cross-package plot-label notation. Do not add generic mathematical macros just because they seem common. In particular, do not re-add arbitrary defaults such as `\I`, `\E`, or `\dd` unless they appear explicitly below.
 
-```r
-system.file("tex", "default-macros.tex", package = "earnmisc")
-system.file("tex", "default-ignore-commands.txt", package = "earnmisc")
-```
+## New default macro file
 
-The default macro file should include a small, conservative set of generally useful macros, for example definitions related to common plot-label notation. Include `\Rn` support if the underlying macros are defined, for example:
+Replace the contents of `inst/tex/default-macros.tex` with exactly this content:
 
 ```tex
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Conservative no-argument macros for earnmisc::nice_text() %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% basic reproduction number
 \newcommand{\R}{\mathcal R}
 \newcommand{\Rn}{\R_0}
+%% incidence
+\newcommand{\inc}{\iota}
+%% Force of Infection
+\newcommand{\FoI}{F}
+%% Kermack and McKendrik
+\newcommand{\kmsubscript}{\text{\scalebox{0.6}{\mathrm{KM}}}}
+\newcommand{\Xkm}{\tX_{\kmsubscript}}
+\newcommand{\Ykm}{\tY_{\kmsubscript}}
+\newcommand{\Zkm}{\tZ_{\kmsubscript}}
+%% approximate quantities
+\newcommand{\tX}{\tilde{X}}
+\newcommand{\tY}{\tilde{Y}}
+\newcommand{\tZ}{\tilde{Z}}
+\newcommand{\tinc}{\tilde{\inc}}
+%% asymptotic values
+\newcommand{\xp}{x^{+}} %{\infty}}
+\newcommand{\xm}{x^{-}} %{-\infty}}
+\newcommand{\zp}{z^{+}} %{\infty}}
+\newcommand{\zm}{z^{-}} %{-\infty}}
+\newcommand{\xpm}{x^\pm}
+\newcommand{\xmp}{x^\mp}
+\newcommand{\Xpm}{X^{\pm}}
+%% multi-functions
+\newcommand{\Xp}{X^{+}}
+\newcommand{\Xm}{X^{-}}
+%% exponential rates
+\newcommand{\lamp}{{\lambda^{\!{+}}}}
+\newcommand{\lamm}{{\lambda^{\!{-}}}}
+\newcommand{\lampm}{\lambda^{\!{\pm}}}
+\newcommand{\lammp}{\lambda^{\!{\mp}}}
+\newcommand{\lambdakm}{\lambda_{\kmsubscript}}
+%% peak values
+\newcommand{\xpeak}{\hat{x}}
+\newcommand{\ypeak}{\hat{y}}
+\newcommand{\zpeak}{\hat{z}}
+\newcommand{\taupeak}{\hat{\tau}}
+\newcommand{\taupeakkm}{\taupeak_{\kmsubscript}}
+\newcommand{\ypeakkm}{\ypeak_{\kmsubscript}}
+\newcommand{\xpeakkm}{\xpeak_{\kmsubscript}}
+\newcommand{\tFoIpeak}{\hat{\tilde{\FoI}}}
+\newcommand{\tincpeak}{\hat{\tilde{\inc}}}
+%% age of infection
+\newcommand{\aoi}{\alpha}
+%% Lambert W function
+\newcommand{\Wp}{W_{\!+}}
+\newcommand{\Wm}{W_{\!-}}
+\newcommand{\Wpm}{W_{\!\pm}}
+%% initial conditions
+\newcommand{\tauinit}{\tau_{\mathrm{i}}}
+\newcommand{\xinit}{x_{\mathrm{i}}}
+\newcommand{\yinit}{y_{\mathrm{i}}}
+\newcommand{\zinit}{z_{\mathrm{i}}}
+%% order of magnitude
+\newcommand{\Oh}{{\mathcal O}}
+%% sets
+\newcommand{\reals}{{\mathbb R}}
+\newcommand{\integers}{{\mathbb Z}}
+\newcommand{\naturals}{{\mathbb N}}
+%% stage durations
+\newcommand{\Tinf}{T_{\mathrm{inf}}}
+\newcommand{\Tlat}{T_{\mathrm{lat}}}
+%% entering boundary layer
+\newcommand{\xin}{x_{\mathrm{in}}}
 ```
 
-The default ignore-command file should include common TeX commands that should be removed or simplified for non-tikz graphics devices, such as:
+## Important parser expectations
 
-```text
-\mathrm
-\mathsf
-\mathbf
-\mathit
-\textrm
-\textsf
-\textbf
-\textit
-\quad
-\qquad
-\,
-\:
-\;
-\!
-```
+The macro parser currently supports simple no-argument TeX macros. Please ensure it continues to parse this file correctly.
 
-Keep both files conservative. This is not intended to be a full TeX system.
+The parser should ignore comment lines and inline comments appropriately.
 
-## User-supplied files
-
-Users should be able to provide additional macro and ignore files with:
-
-```r
-nice_text(x, macros.file = "my-macros.tex")
-nice_text(x, ignore.file = "my-ignore-commands.txt")
-```
-
-The default should be to append user-supplied files to the package defaults:
-
-```r
-append.macros = TRUE
-append.ignore = TRUE
-```
-
-This means:
-- package defaults are read first;
-- user-supplied files are read second;
-- user definitions may override package defaults if the same macro is defined again.
-
-If `append.macros = FALSE`, use only `macros.file`.
-
-If `append.ignore = FALSE`, use only `ignore.file`.
-
-If `macros.file = NULL`, check:
-
-```r
-getOption("earnmisc.tex_macros_file")
-```
-
-If that option is set, treat it as the user-supplied macros file.
-
-If `ignore.file = NULL`, check:
-
-```r
-getOption("earnmisc.tex_ignore_file")
-```
-
-If that option is set, treat it as the user-supplied ignore file.
-
-The package defaults should still be used unless the corresponding append argument is `FALSE`.
-
-## Helper functions for inspection
-
-Please add easy ways to inspect the active and default TeX support lists.
-
-Implement and export these functions:
-
-```r
-nice_text_default_macros_file()
-nice_text_default_ignore_file()
-nice_text_macros(macros.file = NULL, append.macros = TRUE)
-nice_text_ignore_commands(ignore.file = NULL, append.ignore = TRUE)
-```
-
-Suggested behaviour:
-
-### `nice_text_default_macros_file()`
-
-Return the path to the installed package default macros file.
-
-### `nice_text_default_ignore_file()`
-
-Return the path to the installed package default ignore-command file.
-
-### `nice_text_macros()`
-
-Return the currently active no-argument macro definitions as a named character vector or data frame.
-
-It should include:
-- package defaults;
-- user option file from `getOption("earnmisc.tex_macros_file")`, if set;
-- explicit `macros.file`, if supplied;
-- user definitions appended or replacing defaults according to `append.macros`.
-
-Document the exact return type.
-
-### `nice_text_ignore_commands()`
-
-Return the currently active ignore-command list as a character vector.
-
-It should include:
-- package defaults;
-- user option file from `getOption("earnmisc.tex_ignore_file")`, if set;
-- explicit `ignore.file`, if supplied;
-- user commands appended or replacing defaults according to `append.ignore`.
-
-Document the exact return type.
-
-## `use.tikz` behaviour
-
-If `use.tikz` is `TRUE`, return `x` unchanged.
-
-If `use.tikz` is `FALSE`, preprocess `x` using macros and ignore-command rules, then convert with `latex2exp::TeX()` when `latex2exp` is available.
-
-If `use.tikz = NULL`, look for an object called `use.tikz` in the calling environment.
-
-Suggested behaviour:
-- If the calling environment contains a scalar logical object named `use.tikz`, use that value.
-- Otherwise default to `FALSE`.
-- Validate that `use.tikz` is ultimately a scalar logical value.
-
-## Dependencies
-
-Do not put `latex2exp` in `Imports`.
-
-Use it conditionally via:
-
-```r
-requireNamespace("latex2exp", quietly = TRUE)
-```
-
-Add `latex2exp` to `Suggests` if needed.
-
-If `latex2exp` is not available and `use.tikz = FALSE`, return the preprocessed character vector rather than failing.
-
-## TeX macro expansion
-
-Support simple no-argument definitions of the form:
+For example, lines such as:
 
 ```tex
-\newcommand{\foo}{replacement}
-\renewcommand{\foo}{replacement}
-\def\foo{replacement}
+\newcommand{\xp}{x^{+}} %{\infty}}
 ```
 
-Requirements:
-- Support no-argument macros only in this first implementation.
-- Recursive expansion is useful, but protect against infinite loops with a small maximum number of passes.
-- Ignore unsupported macro definitions rather than failing.
-- Give clear warnings only when `warn = TRUE`.
-- Keep the parser simple and well tested; do not attempt to implement full TeX.
-
-Example:
+should define `\xp` as:
 
 ```tex
-\newcommand{\R}{\mathcal R}
-\newcommand{\Rn}{\R_0}
+x^{+}
 ```
 
-should allow:
+not include the trailing comment.
 
-```r
-nice_text("$\\Rn$")
-```
-
-to expand before non-tikz conversion.
-
-## Ignored TeX commands for non-tikz devices
-
-When `use.tikz = FALSE`, unsupported TeX commands should not leak into plot labels as plain text.
-
-For example:
-
-```r
-nice_text("$A_{\\mathrm i}$")
-```
-
-should not produce a label containing the literal text `mathrm`.
-
-Requirements:
-- Commands like `\mathrm{...}`, `\mathsf{...}`, `\mathbf{...}`, `\mathit{...}`, and similar one-argument style wrappers should keep their contents and remove the command.
-- Commands like `\quad`, `\,`, `\:`, `\;`, `\!`, and similar spacing commands should be removed.
-- Keep this conservative. Do not rewrite mathematical meaning.
-- Apply this only when `use.tikz = FALSE`.
-
-For commands listed in ignore files:
-- one-argument wrapper commands such as `\foo{bar}` should become `bar`;
-- bare commands such as `\foo` should be removed.
-
-## Documentation
-
-Add roxygen2 documentation for:
-- `nice_text()`;
-- `nice_text_default_macros_file()`;
-- `nice_text_default_ignore_file()`;
-- `nice_text_macros()`;
-- `nice_text_ignore_commands()`.
-
-The documentation should explain:
-- tikz versus non-tikz behaviour;
-- how `use.tikz = NULL` is resolved from the calling environment;
-- the package default TeX support files;
-- how user files append to or replace defaults;
-- the package options `earnmisc.tex_macros_file` and `earnmisc.tex_ignore_file`;
-- that this is a lightweight helper, not a full TeX parser.
-
-Use Canadian spelling.
-
-Examples should be lightweight and check-friendly. Use `tempfile()` for examples involving user files.
-
-Update package-level documentation if appropriate.
+If the current parser does not strip inline comments safely, please fix that conservatively.
 
 ## Tests
 
-Add focused `testthat` tests for:
-- `use.tikz = TRUE` returns input unchanged;
-- explicit `use.tikz = FALSE`;
-- `use.tikz = NULL` finds a scalar logical `use.tikz` in the calling environment;
-- default `use.tikz = NULL` falls back to `FALSE`;
-- package default macros file exists;
-- package default ignore-command file exists;
-- `nice_text_macros()` returns package defaults;
-- `nice_text_ignore_commands()` returns package defaults;
-- simple macro expansion from the package default file;
-- simple macro expansion from a temporary user file appended to defaults;
-- user macro overriding a package default when appended;
-- replacing defaults with `append.macros = FALSE`;
-- ignored wrapper commands such as `\mathrm{...}`;
-- ignored spacing commands such as `\quad`;
-- ignore commands from a temporary user ignore file appended to defaults;
-- replacing default ignore commands with `append.ignore = FALSE`;
-- vector input preserves length;
-- behaviour when `latex2exp` is unavailable if this can be tested cleanly without brittle mocking.
+Update or add tests so that:
 
-Avoid brittle tests that depend too much on the exact internal structure of `latex2exp` output. It is fine to test internal preprocessing helpers if needed.
+- `nice_text_macros()` includes all macros from the new default file.
+- `nice_text_macros()` includes `\FoI`.
+- `nice_text_macros()` does not include arbitrary old defaults such as `\I`, `\E`, or `\dd`.
+- selected recursive expansions work, including:
+  - `\Rn`, which depends on `\R`;
+  - `\tinc`, which depends on `\inc`;
+  - `\tFoIpeak`, which depends on `\FoI`;
+  - `\Xkm`, which depends on `\tX` and `\kmsubscript`.
+- inline comments do not become part of macro replacement text.
+- user-supplied macro files can still append to these defaults.
+- user-supplied macro files can still override these defaults.
+- `append.macros = FALSE` still replaces the package defaults.
 
-## Internal helpers
+Avoid brittle tests that require `latex2exp` to fully understand every TeX command in this file. It is fine to test macro parsing and expansion through internal helpers if that is the most stable approach.
 
-It is fine to add unexported internal helpers such as:
+## Documentation
 
-```r
-resolve_use_tikz()
-nice_text_file_paths()
-read_tex_macros()
-expand_tex_macros()
-read_tex_ignore_commands()
-clean_tex_for_latex2exp()
-```
+Update documentation only if needed.
 
-Keep them simple and do not export them unless there is a clear reason.
+The documentation should make clear that:
 
-## Package metadata
+- the default macro file is a curated `earnmisc` default;
+- it is intentionally not a full manuscript preamble;
+- users can append or replace it with `macros.file`, `append.macros`, and `options(earnmisc.tex_macros_file = ...)`.
 
-Update `DESCRIPTION` if needed.
-
-Likely:
-- add `latex2exp` to `Suggests`, not `Imports`.
-
-Make sure files under `inst/tex/` are included in the package build.
+Use Canadian spelling.
 
 ## Verification
 
@@ -341,12 +164,8 @@ make check
 ```
 
 Please report:
-1. What API you implemented.
-2. Where the package default TeX support files live.
-3. How user files append to or replace package defaults.
-4. How to inspect the active and default macro and ignore lists.
-5. How `use.tikz = NULL` is resolved.
-6. What files changed.
-7. What tests were added.
-8. What verification commands were run and their results.
-9. Any limitations or TODOs.
+1. What changed in `inst/tex/default-macros.tex`.
+2. Whether the parser needed changes for comments or inline comments.
+3. What tests were added or revised.
+4. What verification commands were run and their results.
+5. Any limitations or TODOs.
