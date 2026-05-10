@@ -1,30 +1,36 @@
 # Latest Codex Response Summary
 
-- Entry ID: `20260510T044611Z`
-- Recorded: `2026-05-10T04:49:04+00:00`
+- Entry ID: `20260510T060715Z`
+- Recorded: `2026-05-10T06:09:03+00:00`
 
-Updated the default macro support for `nice_text()`.
+Fixed `nice_text()` for tikz output.
 
-What changed:
-- Replaced [inst/tex/default-macros.tex](/Users/earn/r/earnmisc/inst/tex/default-macros.tex) with your curated cross-package plot-label macro list exactly as provided.
-- Removed the old arbitrary defaults `\I`, `\E`, and `\dd`.
-- Updated `nice_text_macros()` documentation to describe the default macro file as curated earnmisc plot-label notation, not a full manuscript preamble.
+Tikz mode was failing because `nice_text()` returned `x` unchanged when `use.tikz = TRUE`, so macros like `\Rn` reached tikz/LaTeX without definitions.
 
-Parser changes:
-- No parser code changes were needed. The existing `remove_tex_comment()` already strips unescaped inline `%` comments before parsing.
-- Verified that `\newcommand{\xp}{x^{+}} %{\infty}}` parses as `x^{+}`.
+Now:
+- `use.tikz = TRUE`: expands macros only, returns character LaTeX strings, does not apply ignore-command cleanup, and does not call `latex2exp::TeX()`.
+- `use.tikz = FALSE`: expands macros, applies ignore-command cleanup, then calls `latex2exp::TeX()` when available.
 
-Tests revised:
-- `nice_text_macros()` now checks the full curated default macro name set.
-- Added checks that `\FoI` is included.
-- Added checks that old defaults `\I`, `\E`, and `\dd` are absent.
-- Added recursive expansion checks for `\Rn`, `\tinc`, `\tFoIpeak`, and `\Xkm`.
-- Added inline-comment parsing coverage for `\xp`.
-- Existing tests still cover user macro append, override, and `append.macros = FALSE`.
+Macro expansion in tikz mode uses the same source order as non-tikz mode:
+package defaults, option file, explicit `macros.file`, with later definitions overriding earlier ones; `append.macros = FALSE` omits defaults.
+
+Changed files:
+- [R/nice_text.R](/Users/earn/r/earnmisc/R/nice_text.R)
+- [tests/testthat/test-nice_text.R](/Users/earn/r/earnmisc/tests/testthat/test-nice_text.R)
+- [man/nice_text.Rd](/Users/earn/r/earnmisc/man/nice_text.Rd)
+
+Tests added/revised for:
+- `nice_text("$\\Rn$", use.tikz = TRUE)` expansion.
+- recursive tikz expansion for `\Rn`, `\tinc`, `\tFoIpeak`, and `\Xkm`.
+- tikz mode preserving `\mathrm`.
+- tikz mode returning character strings, not `latex2exp` output.
+- user macro append, override, and `append.macros = FALSE` in tikz mode.
+- vector length preservation in tikz mode.
+- existing non-tikz behaviour remains covered.
 
 Verification:
 - `make document`: passed.
 - `make test`: passed.
 - `make check`: passed with `Status: OK`.
 
-Limitations remain the same: macro support is intentionally limited to simple no-argument definitions and bounded recursive expansion, not full TeX parsing.
+I left the pre-existing unrelated dirty files in `PROMPT*` and `sandbox/` alone.

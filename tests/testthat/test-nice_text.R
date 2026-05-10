@@ -1,7 +1,23 @@
-test_that("nice_text returns input unchanged for tikz output", {
-  input <- c("$\\Rn$", "$A_{\\mathrm i}$")
+test_that("nice_text expands macros for tikz output", {
+  expect_identical(nice_text("$\\Rn$", use.tikz = TRUE), "$\\mathcal R_0$")
+})
 
-  expect_identical(nice_text(input, use.tikz = TRUE), input)
+test_that("recursive macro expansion works in tikz mode", {
+  expect_identical(nice_text("$\\Rn$", use.tikz = TRUE), "$\\mathcal R_0$")
+  expect_identical(nice_text("$\\tinc$", use.tikz = TRUE), "$\\tilde{\\iota}$")
+  expect_identical(nice_text("$\\tFoIpeak$", use.tikz = TRUE), "$\\hat{\\tilde{F}}$")
+  expect_identical(
+    nice_text("$\\Xkm$", use.tikz = TRUE),
+    "$\\tilde{X}_{\\text{\\scalebox{0.6}{\\mathrm{KM}}}}$"
+  )
+})
+
+test_that("tikz mode preserves ignored commands and returns character strings", {
+  input <- "$A_{\\mathrm{i}}$"
+  result <- nice_text(input, use.tikz = TRUE)
+
+  expect_identical(result, input)
+  expect_type(result, "character")
 })
 
 test_that("nice_text accepts explicit non-tikz output", {
@@ -14,7 +30,7 @@ test_that("use.tikz NULL resolves from the calling environment", {
   use.tikz <- TRUE
   input <- "$\\Rn$"
 
-  expect_identical(nice_text(input), input)
+  expect_identical(nice_text(input), "$\\mathcal R_0$")
 })
 
 test_that("use.tikz NULL falls back to FALSE", {
@@ -128,6 +144,19 @@ test_that("temporary user macros append to defaults", {
   expect_identical(unname(macros["foo"]), "bar")
 })
 
+test_that("temporary user macros append to defaults in tikz mode", {
+  macros.file <- tempfile(fileext = ".tex")
+  writeLines("\\newcommand{\\foo}{bar}", macros.file)
+
+  result <- nice_text(
+    "$\\foo \\Rn$",
+    use.tikz = TRUE,
+    macros.file = macros.file
+  )
+
+  expect_identical(result, "$bar \\mathcal R_0$")
+})
+
 test_that("temporary user macros override defaults when appended", {
   macros.file <- tempfile(fileext = ".tex")
   writeLines("\\renewcommand{\\R}{R}", macros.file)
@@ -138,6 +167,15 @@ test_that("temporary user macros override defaults when appended", {
   expect_identical(expand_tex_macros("$\\Rn$", macros), "$R_0$")
 })
 
+test_that("temporary user macros override defaults in tikz mode", {
+  macros.file <- tempfile(fileext = ".tex")
+  writeLines("\\renewcommand{\\R}{R}", macros.file)
+
+  result <- nice_text("$\\Rn$", use.tikz = TRUE, macros.file = macros.file)
+
+  expect_identical(result, "$R_0$")
+})
+
 test_that("append.macros FALSE replaces package defaults", {
   macros.file <- tempfile(fileext = ".tex")
   writeLines("\\newcommand{\\foo}{bar}", macros.file)
@@ -146,6 +184,20 @@ test_that("append.macros FALSE replaces package defaults", {
 
   expect_named(macros, "foo")
   expect_identical(unname(macros["foo"]), "bar")
+})
+
+test_that("append.macros FALSE replaces package defaults in tikz mode", {
+  macros.file <- tempfile(fileext = ".tex")
+  writeLines("\\newcommand{\\foo}{bar}", macros.file)
+
+  result <- nice_text(
+    "$\\foo \\Rn$",
+    use.tikz = TRUE,
+    macros.file = macros.file,
+    append.macros = FALSE
+  )
+
+  expect_identical(result, "$bar \\Rn$")
 })
 
 test_that("macro option file is included before explicit user file", {
@@ -216,6 +268,16 @@ test_that("nice_text preprocessing preserves vector length", {
 
   expect_identical(length(output), length(input))
   expect_false(any(grepl("mathrm", output, fixed = TRUE)))
+})
+
+test_that("nice_text tikz mode preserves vector length", {
+  input <- c("$\\Rn$", "$\\tinc$", "$A_{\\mathrm{i}}$")
+  output <- nice_text(input, use.tikz = TRUE)
+
+  expect_identical(length(output), length(input))
+  expect_identical(output[1], "$\\mathcal R_0$")
+  expect_identical(output[2], "$\\tilde{\\iota}$")
+  expect_identical(output[3], "$A_{\\mathrm{i}}$")
 })
 
 test_that("nice_text validates use.tikz", {

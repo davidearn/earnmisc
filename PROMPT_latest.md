@@ -1,9 +1,9 @@
 # Latest Codex Prompt
 
-- Entry ID: `20260510T044611Z`
-- Recorded: `2026-05-10T04:46:11+00:00`
+- Entry ID: `20260510T060715Z`
+- Recorded: `2026-05-10T06:07:15+00:00`
 
-Please update the default TeX macro support for `earnmisc::nice_text()`.
+Please fix `earnmisc::nice_text()` so that package/user macros are expanded for tikz output as well as non-tikz output.
 
 Read `AGENTS.md` first and follow it closely.
 
@@ -11,145 +11,126 @@ Do not modify `tools/`.
 Do not run `make prompt`, `make response`, or `make record.commit`.
 Do not create Git commits.
 
-## Goal
+## Problem
 
-Replace the current package default macro file with my curated default macro list.
+`nice_text()` now works well when `use.tikz = FALSE`, but it fails with tikz devices because macro names such as `\Rn` are returned unchanged.
 
-The file is:
+For example, this fails during tikz metric calculation:
+
+```r
+nice_text("$\\Rn$", use.tikz = TRUE)
+```
+
+because tikz/LaTeX receives:
+
+```tex
+$\Rn$
+```
+
+and `\Rn` is not defined in the standalone tikz LaTeX context.
+
+The error is like:
 
 ```text
-inst/tex/default-macros.tex
+Error in getMetricsFromLatex(TeXMetrics, verbose = verbose) :
+TeX was unable to calculate metrics for:
+
+    $\Rn$
 ```
 
-This file should reflect my stable cross-package plot-label notation. Do not add generic mathematical macros just because they seem common. In particular, do not re-add arbitrary defaults such as `\I`, `\E`, or `\dd` unless they appear explicitly below.
+## Required behaviour
 
-## New default macro file
+`nice_text()` should expand macros for both tikz and non-tikz output.
 
-Replace the contents of `inst/tex/default-macros.tex` with exactly this content:
+That means:
+
+```r
+nice_text("$\\Rn$", use.tikz = TRUE)
+```
+
+should return something like:
 
 ```tex
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Conservative no-argument macros for earnmisc::nice_text() %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% basic reproduction number
-\newcommand{\R}{\mathcal R}
-\newcommand{\Rn}{\R_0}
-%% incidence
-\newcommand{\inc}{\iota}
-%% Force of Infection
-\newcommand{\FoI}{F}
-%% Kermack and McKendrik
-\newcommand{\kmsubscript}{\text{\scalebox{0.6}{\mathrm{KM}}}}
-\newcommand{\Xkm}{\tX_{\kmsubscript}}
-\newcommand{\Ykm}{\tY_{\kmsubscript}}
-\newcommand{\Zkm}{\tZ_{\kmsubscript}}
-%% approximate quantities
-\newcommand{\tX}{\tilde{X}}
-\newcommand{\tY}{\tilde{Y}}
-\newcommand{\tZ}{\tilde{Z}}
-\newcommand{\tinc}{\tilde{\inc}}
-%% asymptotic values
-\newcommand{\xp}{x^{+}} %{\infty}}
-\newcommand{\xm}{x^{-}} %{-\infty}}
-\newcommand{\zp}{z^{+}} %{\infty}}
-\newcommand{\zm}{z^{-}} %{-\infty}}
-\newcommand{\xpm}{x^\pm}
-\newcommand{\xmp}{x^\mp}
-\newcommand{\Xpm}{X^{\pm}}
-%% multi-functions
-\newcommand{\Xp}{X^{+}}
-\newcommand{\Xm}{X^{-}}
-%% exponential rates
-\newcommand{\lamp}{{\lambda^{\!{+}}}}
-\newcommand{\lamm}{{\lambda^{\!{-}}}}
-\newcommand{\lampm}{\lambda^{\!{\pm}}}
-\newcommand{\lammp}{\lambda^{\!{\mp}}}
-\newcommand{\lambdakm}{\lambda_{\kmsubscript}}
-%% peak values
-\newcommand{\xpeak}{\hat{x}}
-\newcommand{\ypeak}{\hat{y}}
-\newcommand{\zpeak}{\hat{z}}
-\newcommand{\taupeak}{\hat{\tau}}
-\newcommand{\taupeakkm}{\taupeak_{\kmsubscript}}
-\newcommand{\ypeakkm}{\ypeak_{\kmsubscript}}
-\newcommand{\xpeakkm}{\xpeak_{\kmsubscript}}
-\newcommand{\tFoIpeak}{\hat{\tilde{\FoI}}}
-\newcommand{\tincpeak}{\hat{\tilde{\inc}}}
-%% age of infection
-\newcommand{\aoi}{\alpha}
-%% Lambert W function
-\newcommand{\Wp}{W_{\!+}}
-\newcommand{\Wm}{W_{\!-}}
-\newcommand{\Wpm}{W_{\!\pm}}
-%% initial conditions
-\newcommand{\tauinit}{\tau_{\mathrm{i}}}
-\newcommand{\xinit}{x_{\mathrm{i}}}
-\newcommand{\yinit}{y_{\mathrm{i}}}
-\newcommand{\zinit}{z_{\mathrm{i}}}
-%% order of magnitude
-\newcommand{\Oh}{{\mathcal O}}
-%% sets
-\newcommand{\reals}{{\mathbb R}}
-\newcommand{\integers}{{\mathbb Z}}
-\newcommand{\naturals}{{\mathbb N}}
-%% stage durations
-\newcommand{\Tinf}{T_{\mathrm{inf}}}
-\newcommand{\Tlat}{T_{\mathrm{lat}}}
-%% entering boundary layer
-\newcommand{\xin}{x_{\mathrm{in}}}
+${\mathcal R}_0$
 ```
 
-## Important parser expectations
+or an equivalent recursively expanded LaTeX string, not `"$\\Rn$"`.
 
-The macro parser currently supports simple no-argument TeX macros. Please ensure it continues to parse this file correctly.
+For `use.tikz = TRUE`:
+- expand macros using the package default macro file plus any user macro files;
+- do not run the non-tikz cleanup/ignore-command step;
+- do not call `latex2exp::TeX()`;
+- return a character vector of expanded LaTeX strings.
 
-The parser should ignore comment lines and inline comments appropriately.
+For `use.tikz = FALSE`:
+- keep the existing behaviour: expand macros, clean ignored commands, and call `latex2exp::TeX()` when available.
 
-For example, lines such as:
+## Preserve append/replace semantics
 
-```tex
-\newcommand{\xp}{x^{+}} %{\infty}}
+Macro expansion for tikz output should use the same macro-source logic as non-tikz output:
+
+- package defaults first;
+- option file from `getOption("earnmisc.tex_macros_file")`, if set;
+- explicit `macros.file`, if supplied;
+- later definitions override earlier ones;
+- `append.macros = FALSE` uses only user-supplied macro files and omits the package defaults.
+
+Ignore-command files should still apply only to non-tikz output.
+
+## Important distinction
+
+Previously, `use.tikz = TRUE` returned `x` unchanged.
+
+That is no longer sufficient.
+
+The revised behaviour should be:
+
+```r
+if (use.tikz) {
+  return(expand_macros_only(x))
+}
 ```
 
-should define `\xp` as:
+not:
 
-```tex
-x^{+}
+```r
+if (use.tikz) {
+  return(x)
+}
 ```
 
-not include the trailing comment.
-
-If the current parser does not strip inline comments safely, please fix that conservatively.
+Please update documentation to explain this clearly.
 
 ## Tests
 
-Update or add tests so that:
+Add or revise tests so that:
 
-- `nice_text_macros()` includes all macros from the new default file.
-- `nice_text_macros()` includes `\FoI`.
-- `nice_text_macros()` does not include arbitrary old defaults such as `\I`, `\E`, or `\dd`.
-- selected recursive expansions work, including:
-  - `\Rn`, which depends on `\R`;
-  - `\tinc`, which depends on `\inc`;
-  - `\tFoIpeak`, which depends on `\FoI`;
-  - `\Xkm`, which depends on `\tX` and `\kmsubscript`.
-- inline comments do not become part of macro replacement text.
-- user-supplied macro files can still append to these defaults.
-- user-supplied macro files can still override these defaults.
-- `append.macros = FALSE` still replaces the package defaults.
+- `nice_text("$\\Rn$", use.tikz = TRUE)` expands `\Rn`.
+- recursive expansion works in tikz mode, including:
+  - `\Rn`;
+  - `\tinc`;
+  - `\tFoIpeak`;
+  - `\Xkm`.
+- tikz mode does not apply the ignore-command cleanup step.
+  For example, `nice_text("$A_{\\mathrm{i}}$", use.tikz = TRUE)` should preserve `\mathrm`.
+- tikz mode does not call `latex2exp::TeX()`.
+- non-tikz behaviour still works.
+- user macro append, override, and `append.macros = FALSE` work in tikz mode as well as non-tikz mode.
+- vector input preserves length in tikz mode.
 
-Avoid brittle tests that require `latex2exp` to fully understand every TeX command in this file. It is fine to test macro parsing and expansion through internal helpers if that is the most stable approach.
+Avoid brittle tests that require a tikz device or actual LaTeX compilation. Test returned strings directly.
 
 ## Documentation
 
-Update documentation only if needed.
+Update roxygen2 documentation for `nice_text()`.
 
-The documentation should make clear that:
+The documentation should now say:
 
-- the default macro file is a curated `earnmisc` default;
-- it is intentionally not a full manuscript preamble;
-- users can append or replace it with `macros.file`, `append.macros`, and `options(earnmisc.tex_macros_file = ...)`.
+- tikz mode returns macro-expanded LaTeX strings;
+- non-tikz mode returns `latex2exp::TeX()` output when available;
+- macro expansion happens in both modes;
+- ignored TeX command cleanup happens only in non-tikz mode;
+- `nice_text()` is not a full TeX parser.
 
 Use Canadian spelling.
 
@@ -164,8 +145,9 @@ make check
 ```
 
 Please report:
-1. What changed in `inst/tex/default-macros.tex`.
-2. Whether the parser needed changes for comments or inline comments.
-3. What tests were added or revised.
-4. What verification commands were run and their results.
-5. Any limitations or TODOs.
+1. Why tikz mode was failing.
+2. How macro expansion now works in tikz mode.
+3. How tikz and non-tikz processing now differ.
+4. What tests were added or revised.
+5. What files changed.
+6. What verification commands were run and their results.

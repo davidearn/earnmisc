@@ -17,10 +17,10 @@ nice_text(
 \arguments{
 \item{x}{Character vector of labels.}
 
-\item{use.tikz}{Optional logical scalar. If \code{TRUE}, return \code{x} unchanged.
-If \code{FALSE}, preprocess for non-tikz graphics devices. If \code{NULL}, look for
-a scalar logical object named \code{use.tikz} in the calling environment and
-otherwise use \code{FALSE}.}
+\item{use.tikz}{Optional logical scalar. If \code{TRUE}, expand macros and return
+character LaTeX strings. If \code{FALSE}, preprocess for non-tikz graphics
+devices. If \code{NULL}, look for a scalar logical object named \code{use.tikz} in
+the calling environment and otherwise use \code{FALSE}.}
 
 \item{macros.file}{Optional path to a user TeX macro file. If \code{NULL}, the
 option \code{earnmisc.tex_macros_file} is checked.}
@@ -39,16 +39,18 @@ files.}
 definitions and missing optional TeX conversion support.}
 }
 \value{
-If \code{use.tikz} resolves to \code{TRUE}, returns \code{x} unchanged. Otherwise
-returns the result of \code{\link[latex2exp:TeX]{latex2exp::TeX()}} when \code{latex2exp} is available, or
-the preprocessed character vector when it is not.
+If \code{use.tikz} resolves to \code{TRUE}, returns macro-expanded character
+strings and does not call \code{\link[latex2exp:TeX]{latex2exp::TeX()}}. Otherwise returns the result
+of \code{\link[latex2exp:TeX]{latex2exp::TeX()}} when \code{latex2exp} is available, or the preprocessed
+character vector when it is not.
 }
 \description{
 Prepare a character vector for plot labels on tikz and non-tikz graphics
-devices. For tikz devices, the input is returned unchanged. For non-tikz
-devices, simple no-argument TeX macros are expanded, configured TeX commands
-are removed or simplified, and \code{\link[latex2exp:TeX]{latex2exp::TeX()}} is used when the
-\code{latex2exp} package is available.
+devices. In both modes, simple no-argument TeX macros are expanded from the
+package default macro file and any user macro files. For tikz devices,
+macro-expanded LaTeX strings are returned directly. For non-tikz devices,
+configured TeX commands are also removed or simplified, and
+\code{\link[latex2exp:TeX]{latex2exp::TeX()}} is used when the \code{latex2exp} package is available.
 }
 \details{
 This is a lightweight helper, not a full TeX parser. It supports

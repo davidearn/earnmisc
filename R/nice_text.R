@@ -1,10 +1,11 @@
 #' Prepare TeX-like text for plot labels
 #'
 #' Prepare a character vector for plot labels on tikz and non-tikz graphics
-#' devices. For tikz devices, the input is returned unchanged. For non-tikz
-#' devices, simple no-argument TeX macros are expanded, configured TeX commands
-#' are removed or simplified, and [latex2exp::TeX()] is used when the
-#' `latex2exp` package is available.
+#' devices. In both modes, simple no-argument TeX macros are expanded from the
+#' package default macro file and any user macro files. For tikz devices,
+#' macro-expanded LaTeX strings are returned directly. For non-tikz devices,
+#' configured TeX commands are also removed or simplified, and
+#' [latex2exp::TeX()] is used when the `latex2exp` package is available.
 #'
 #' This is a lightweight helper, not a full TeX parser. It supports
 #' conservative no-argument definitions of the form
@@ -12,10 +13,10 @@
 #' and `\\def\\foo{replacement}`.
 #'
 #' @param x Character vector of labels.
-#' @param use.tikz Optional logical scalar. If `TRUE`, return `x` unchanged.
-#'   If `FALSE`, preprocess for non-tikz graphics devices. If `NULL`, look for
-#'   a scalar logical object named `use.tikz` in the calling environment and
-#'   otherwise use `FALSE`.
+#' @param use.tikz Optional logical scalar. If `TRUE`, expand macros and return
+#'   character LaTeX strings. If `FALSE`, preprocess for non-tikz graphics
+#'   devices. If `NULL`, look for a scalar logical object named `use.tikz` in
+#'   the calling environment and otherwise use `FALSE`.
 #' @param macros.file Optional path to a user TeX macro file. If `NULL`, the
 #'   option `earnmisc.tex_macros_file` is checked.
 #' @param ignore.file Optional path to a user ignore-command file. If `NULL`,
@@ -28,9 +29,10 @@
 #' @param warn Logical scalar. If `TRUE`, warn about unsupported macro
 #'   definitions and missing optional TeX conversion support.
 #'
-#' @return If `use.tikz` resolves to `TRUE`, returns `x` unchanged. Otherwise
-#'   returns the result of [latex2exp::TeX()] when `latex2exp` is available, or
-#'   the preprocessed character vector when it is not.
+#' @return If `use.tikz` resolves to `TRUE`, returns macro-expanded character
+#'   strings and does not call [latex2exp::TeX()]. Otherwise returns the result
+#'   of [latex2exp::TeX()] when `latex2exp` is available, or the preprocessed
+#'   character vector when it is not.
 #'
 #' @examples
 #' nice_text("$\\Rn$", use.tikz = TRUE)
@@ -56,7 +58,12 @@ nice_text <- function(x,
   use.tikz <- resolve_use_tikz(use.tikz, parent.frame())
 
   if (use.tikz) {
-    return(x)
+    return(nice_text_expand_macros(
+      x,
+      macros.file = macros.file,
+      append.macros = append.macros,
+      warn = warn
+    ))
   }
 
   preprocessed.text <- nice_text_preprocess(
@@ -211,13 +218,6 @@ nice_text_preprocess <- function(x,
                                  warn = TRUE) {
   append.macros <- validate_logical_scalar(append.macros, "append.macros")
   append.ignore <- validate_logical_scalar(append.ignore, "append.ignore")
-
-  macros.files <- nice_text_file_paths(
-    default.file = nice_text_default_macros_file(),
-    option.name = "earnmisc.tex_macros_file",
-    explicit.file = macros.file,
-    append.default = append.macros
-  )
   ignore.files <- nice_text_file_paths(
     default.file = nice_text_default_ignore_file(),
     option.name = "earnmisc.tex_ignore_file",
@@ -225,13 +225,33 @@ nice_text_preprocess <- function(x,
     append.default = append.ignore
   )
 
-  macros <- read_tex_macros(macros.files, warn = warn)
   ignore.commands <- read_tex_ignore_commands(ignore.files)
 
   clean_tex_for_latex2exp(
-    expand_tex_macros(x, macros = macros),
+    nice_text_expand_macros(
+      x,
+      macros.file = macros.file,
+      append.macros = append.macros,
+      warn = warn
+    ),
     ignore.commands = ignore.commands
   )
+}
+
+nice_text_expand_macros <- function(x,
+                                    macros.file = NULL,
+                                    append.macros = TRUE,
+                                    warn = TRUE) {
+  append.macros <- validate_logical_scalar(append.macros, "append.macros")
+  macros.files <- nice_text_file_paths(
+    default.file = nice_text_default_macros_file(),
+    option.name = "earnmisc.tex_macros_file",
+    explicit.file = macros.file,
+    append.default = append.macros
+  )
+  macros <- read_tex_macros(macros.files, warn = warn)
+
+  expand_tex_macros(x, macros = macros)
 }
 
 resolve_use_tikz <- function(use.tikz, envir = parent.frame()) {
