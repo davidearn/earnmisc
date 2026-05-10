@@ -1402,5 +1402,7 @@ Limitations remain the same: macro support is intentionally limited to simple no
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260510T044611Z -->
-_Pending._
+- Recorded: `2026-05-10T04:50:14+00:00`
+- Hash: `1a4711ef1b6669ee36c3880662926948921ed58d`
+- Subject: Update nice_text default macros
 <!-- codex-workflow-commit-end: 20260510T044611Z -->
