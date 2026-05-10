@@ -19,9 +19,11 @@ example(xys_line)
 if (interactive()) ?okabe_ito_colours
 oi.orange
 if (interactive()) ?nice_text
-plot(0,0)
-text(0, 0.2, nice_text(r"($\Rn$)"))
-text(0, -0.2, nice_text(r"($\lambdakm$)"))
-text(0.4, 0, nice_text(r"($\Ykm$)"))
+plot(0,0, las = 1, xlab = "", ylab = "")
+cx <- 2
+text(0, 0.2, nice_text(r"($\Rn$)"), cex = cx)
+text(0, -0.2, nice_text(r"($\lambdakm$)"), cex = cx)
+text(0.4, 0, nice_text(r"($\Ykm$)"), cex = cx)
 
 if (!interactive()) dev.off()
+
