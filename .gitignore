@@ -6,3 +6,4 @@
 *.Rcheck/
 reference-code/
 tools/__pycache__/
+*.md.v*.sav
