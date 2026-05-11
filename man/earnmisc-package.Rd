@@ -16,7 +16,7 @@ The main utility families are:
 \item Small base graphics helpers, including vectorised \code{xys_line()}.
 \item Base graphics plot metadata helpers.
 \item Lightweight TeX label helpers, including \code{nice_text()}.
-\item Tikz graphics device helpers.
+\item Graphics-device helpers, including tikz and PDF helpers.
 }
 }
 \author{

@@ -1,9 +1,9 @@
 # Latest Codex Prompt
 
-- Entry ID: `20260510T160324Z`
-- Recorded: `2026-05-10T16:03:24+00:00`
+- Entry ID: `20260511T151305Z`
+- Recorded: `2026-05-11T15:13:05+00:00`
 
-Please add tikz helper functions to `earnmisc`.
+Please add graphics-device helper functions to `earnmisc`.
 
 Read `AGENTS.md` first and follow it closely.
 
@@ -13,280 +13,113 @@ Do not create Git commits.
 
 ## Goal
 
-Add helpers:
+Add and export two small helpers:
 
 ```r
-tikz_open()
-tikz_info()
-tikz_compile()
+dev_is_tikz()
+dev_is_pdf()
 ```
 
-These should make it easier to open a `tikzDevice::tikz()` graphics device, retain metadata about the output file and device arguments, and compile the resulting `.tex` file to PDF.
+These should return scalar `TRUE` or `FALSE` depending on the currently active graphics device.
 
-## Background
-
-`tikzDevice::tikz()` returns no useful value, so after opening a tikz device there is no direct way to recover the filename, width, height, or arguments used.
-
-I want `earnmisc::tikz_open()` to wrap `tikzDevice::tikz()` and return/store this metadata.
-
-The current `tikzDevice::tikz()` API includes arguments such as:
+Example intended use:
 
 ```r
-file = filename
-filename = ifelse(onefile, "./Rplots.tex", "./Rplot%03d.tex")
-width = 7
-height = 7
-onefile = TRUE
-bg = "transparent"
-fg = "black"
-pointsize = 10
-lwdUnit = getOption("tikzLwdUnit")
-standAlone = FALSE
-bareBones = FALSE
-console = FALSE
-sanitize = FALSE
-engine = getOption("tikzDefaultEngine")
-documentDeclaration = getOption("tikzDocumentDeclaration")
-packages
-footer = getOption("tikzFooter")
-symbolicColors = getOption("tikzSymbolicColors")
-colorFileName = "%s_colors.tex"
-maxSymbolicColors = getOption("tikzMaxSymbolicColors")
-timestamp = TRUE
-verbose = interactive()
+if (dev_is_tikz()) {
+  tikz_compile(...)
+}
 ```
 
-Please explicitly expose these arguments in `tikz_open()`, rather than just using `...`.
+## Behaviour
 
-Change one default for my workflow:
+### `dev_is_tikz()`
+
+Return `TRUE` when the current graphics device appears to be a tikz device opened by `tikzDevice::tikz()` or `earnmisc::tikz_open()`.
+
+Return `FALSE` otherwise, including when there is no open user graphics device.
+
+### `dev_is_pdf()`
+
+Return `TRUE` when the current graphics device is a PDF device opened by `grDevices::pdf()`.
+
+Return `FALSE` otherwise, including when there is no open user graphics device.
+
+## Implementation notes
+
+Keep the implementation simple.
+
+A reasonable starting point is to inspect the current device name using:
 
 ```r
-standAlone = TRUE
+names(grDevices::dev.cur())
 ```
 
-instead of the `tikzDevice::tikz()` default `FALSE`.
+or equivalent base R graphics-device information.
 
-## Dependency
+Please check the actual device names produced by ordinary `pdf()` and, when available, `tikzDevice::tikz()`.
 
-Do not put `tikzDevice` in `Imports`.
-
-Use it conditionally via:
+If useful, add a small non-exported helper such as:
 
 ```r
-requireNamespace("tikzDevice", quietly = TRUE)
+current_device_name()
 ```
 
-Add `tikzDevice` to `Suggests`.
-
-If `tikzDevice` is not available, `tikz_open()` should fail with a clear error.
-
-## `tikz_open()`
-
-Please implement and export:
+or:
 
 ```r
-tikz_open <- function(
-  file = filename,
-  filename = ifelse(onefile, "./Rplots.tex", "./Rplot%03d.tex"),
-  width = 7,
-  height = 7,
-  onefile = TRUE,
-  bg = "transparent",
-  fg = "black",
-  pointsize = 10,
-  lwdUnit = getOption("tikzLwdUnit"),
-  standAlone = TRUE,
-  bareBones = FALSE,
-  console = FALSE,
-  sanitize = FALSE,
-  engine = getOption("tikzDefaultEngine"),
-  documentDeclaration = getOption("tikzDocumentDeclaration"),
-  packages = NULL,
-  footer = getOption("tikzFooter"),
-  symbolicColors = getOption("tikzSymbolicColors"),
-  colorFileName = "%s_colors.tex",
-  maxSymbolicColors = getOption("tikzMaxSymbolicColors"),
-  timestamp = TRUE,
-  verbose = interactive(),
-  message = TRUE
-)
+dev_name()
 ```
 
-If `packages = NULL`, call `tikzDevice::tikz()` without explicitly passing `packages`, so that tikzDevice can use its own default machinery. If this is awkward, choose a clean implementation and document it.
+to avoid duplicating logic. Document any non-exported helper with roxygen2 comments, following `AGENTS.md`.
 
-Required behaviour:
-- Open a tikz graphics device by calling `tikzDevice::tikz()` with the corresponding arguments.
-- Return invisibly a list containing all argument values, plus useful metadata.
-- Store the same list internally so `tikz_info()` can retrieve it later.
-- Include at least:
-  - `file`;
-  - `filename`;
-  - `width`;
-  - `height`;
-  - all other arguments passed to `tikzDevice::tikz()`;
-  - `device`;
-  - `device.name`;
-  - `opened_at`, preferably `Sys.time()`;
-  - `working_directory`, preferably `getwd()`;
-  - `normalized_file`, using `normalizePath(file, mustWork = FALSE)`;
-  - `pdf_file`, the expected PDF filename after compilation.
+Do not introduce new required dependencies.
 
-The returned object can be a plain list, but please give it a simple class, for example:
+`dev_is_tikz()` may use device-name detection and/or stored metadata from `tikz_open()` if that makes the result more reliable. However, it should still work for a tikz device opened directly with `tikzDevice::tikz()` if possible.
 
-```r
-class(info) <- c("earnmisc_tikz_info", "list")
-```
+## Edge cases
 
-### Messages from `tikz_open()`
+Please handle these cleanly:
 
-By default, `tikz_open()` should print a message of the form:
+- no open user graphics device;
+- current device is the null device;
+- current device is PDF;
+- current device is tikz;
+- current device is another device such as the default screen device.
 
-```text
-tikz_open: writing to filename.tex (width = 14, height = 7) ...
-```
-
-This should happen after the device has been opened successfully.
-
-Use `message = TRUE` by default to control this.
-
-If opening the device fails, give a clear error.
-
-## `tikz_info()`
-
-Please implement and export:
-
-```r
-tikz_info <- function(device = NULL)
-```
-
-Required behaviour:
-- Return the most recent tikz info object if `device = NULL`.
-- If `device` is supplied, return the stored info for that device if available.
-- Return `NULL` or give a clear error if no matching info is available. Choose the cleaner behaviour and document it.
-- Do not require the device still to be open; the info should remain available after `dev.off()`.
-
-If possible, store info by device number in a package-private environment, and also store the most recent tikz info object.
-
-## `tikz_compile()`
-
-Please implement and export:
-
-```r
-tikz_compile <- function(
-  x,
-  engine = "lualatex",
-  batchmode = TRUE,
-  clean = FALSE,
-  message = TRUE
-)
-```
-
-`x` should be either:
-- a character string giving the `.tex` filename; or
-- a full list returned by `tikz_open()`.
-
-Required behaviour:
-- Determine the `.tex` file from `x`.
-- Compile with `lualatex` by default.
-- Use batch mode by default.
-- Produce the corresponding `.pdf` file.
-- Return the PDF filename invisibly or visibly. I prefer visible return so this works naturally:
-
-```r
-tikz.pdf <- tikz_compile(tikz.info)
-system(paste0("open ", tikz.pdf))
-```
-
-So please return the PDF filename as a character string.
-- By default, print a message indicating success, for example:
-
-```text
-tikz_compile: produced filename.pdf
-```
-
-- If compilation fails or the PDF is not produced, stop with a helpful error such as:
-
-```text
-tikz_compile: failed to produce filename.pdf
-```
-
-Include useful details if available, such as the exit status or log file path.
-
-Implementation details:
-- Use `system2()` rather than `system()`.
-- Compile in the directory containing the `.tex` file, so relative paths work naturally.
-- Quote paths safely.
-- The default command should be approximately:
-
-```sh
-lualatex -interaction=batchmode filename.tex
-```
-
-- If `batchmode = FALSE`, omit `-interaction=batchmode` or use a less quiet interaction mode if that is cleaner.
-- `clean = TRUE` may remove common auxiliary files such as `.aux`, `.log`, and `.out` after successful compilation. Keep this conservative.
-- Do not delete the `.tex` or `.pdf` file.
-
-## Expected usage
-
-The following should work:
-
-```r
-tikz.info <- tikz_open(my.tex.file, width = 14)
-plot(1:10)
-dev.off()
-
-tikz.pdf <- tikz_compile(tikz.info)
-system(paste0("open ", tikz.pdf))
-```
-
-Also:
-
-```r
-tikz_open("figure.tex", width = 14, height = 7)
-plot(1:10)
-tikz.info()
-dev.off()
-tikz_compile("figure.tex")
-```
+The helpers should not error in ordinary use.
 
 ## Documentation
 
 Add roxygen2 documentation for:
-- `tikz_open()`;
-- `tikz_info()`;
-- `tikz_compile()`.
 
-Explain:
-- `tikz_open()` wraps `tikzDevice::tikz()`;
-- `standAlone = TRUE` is the `earnmisc` default;
-- `tikz_open()` stores metadata because `tikzDevice::tikz()` itself returns no value;
-- `tikz_compile()` uses `lualatex` by default;
-- `tikzDevice` is suggested, not imported;
-- a working LaTeX installation is required for compilation.
+```r
+dev_is_tikz()
+dev_is_pdf()
+```
+
+Mention that these are lightweight helpers based on the currently active graphics device.
 
 Use Canadian spelling.
 
-Examples should be lightweight and check-friendly. Do not run actual tikz compilation in examples. Use `\dontrun{}` or `\donttest{}` where appropriate.
+Examples should be lightweight and check-friendly. Avoid examples requiring `tikzDevice` unless protected with `if (requireNamespace("tikzDevice", quietly = TRUE))`.
 
 ## Tests
 
-Add focused tests where possible, but avoid brittle tests that require an installed LaTeX system or working tikzDevice unless already available.
+Add tests for:
 
-Suggested tests:
-- `tikz_compile()` resolves the expected PDF filename from a character `.tex` filename.
-- `tikz_compile()` resolves the expected PDF filename from a `tikz_open()` info-like list.
-- If testing actual compilation is not safe, isolate filename-resolution helpers and test those.
-- `tikz_info()` returns `NULL` or an error before any tikz device has been opened, according to the documented design.
-- Metadata construction includes all explicit `tikz_open()` arguments.
-- `standAlone = TRUE` is the `tikz_open()` default.
-- Message formatting can be tested if straightforward.
-- Tests that require `tikzDevice` should skip if it is not installed.
-- Tests that require `lualatex` should skip if it is not found with `Sys.which("lualatex")`.
+- both functions return scalar logical values;
+- both return `FALSE` on the null device or when no user graphics device is active;
+- `dev_is_pdf()` returns `TRUE` inside a temporary `pdf()` device;
+- `dev_is_tikz()` returns `TRUE` inside a temporary tikz device when `tikzDevice` is installed;
+- `dev_is_tikz()` tests skip cleanly when `tikzDevice` is unavailable.
 
-## Package metadata
+Tests involving device opening should use `on.exit(grDevices::dev.off(), add = TRUE)` or equivalent cleanup so devices are not left open.
 
-Update `DESCRIPTION`:
-- add `tikzDevice` to `Suggests`.
+Avoid requiring LaTeX compilation. Opening a tikz device should be enough if `tikzDevice` is available; skip if not safe.
+
+## Package docs
+
+Update package-level documentation if appropriate, probably by mentioning these under graphics-device helpers.
 
 Regenerate documentation and NAMESPACE.
 
@@ -301,11 +134,9 @@ make check
 ```
 
 Please report:
-1. What API you implemented.
-2. What metadata `tikz_open()` returns and stores.
-3. How `tikz_info()` retrieves stored info.
-4. How `tikz_compile()` determines the PDF filename and runs LaTeX.
-5. What dependencies were added to `Suggests`.
-6. What tests were added or revised.
-7. What verification commands were run and their results.
-8. Any limitations or TODOs.
+1. What functions were added.
+2. How the current device is detected.
+3. How null/no-device cases are handled.
+4. What tests were added.
+5. What verification commands were run and their results.
+6. Any limitations or TODOs.
