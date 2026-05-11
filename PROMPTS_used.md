@@ -2312,5 +2312,7 @@ Limitation: detection is intentionally lightweight and depends on device names p
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260511T151305Z -->
-_Pending._
+- Recorded: `2026-05-11T15:17:20+00:00`
+- Hash: `4beba083e585c2b4587000206e8ca6eb183a4e41`
+- Subject: Add graphics device detection helpers
 <!-- codex-workflow-commit-end: 20260511T151305Z -->
