@@ -3572,5 +3572,7 @@ Verification:
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260513T153935Z -->
-_Pending._
+- Recorded: `2026-05-13T15:43:25+00:00`
+- Hash: `f610e8efdf8cfabdad58c1778c79a6c012ed58d7`
+- Subject: Add colour swatch display helpers
 <!-- codex-workflow-commit-end: 20260513T153935Z -->
