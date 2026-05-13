@@ -1,53 +1,60 @@
 # Latest Codex Response Summary
 
-- Entry ID: `20260513T124935Z`
-- Recorded: `2026-05-13T12:55:40+00:00`
+- Entry ID: `20260513T135047Z`
+- Recorded: `2026-05-13T13:55:02+00:00`
 
-Implemented the two list utilities.
+Revised `input_form()` as requested.
 
-API added:
-- `update_list(x, ..., .create = FALSE)`
-- `input_form(x, file = "", control = "all", width.cutoff = 60)`
+`width.cutoff` now uses `deparse()` directly:
 
-`update_list()`:
-- Updates top-level names like `type = "new"`.
-- Updates nested paths with simple `$` syntax, e.g. `"parms$graphics$lwd" = 3`.
-- Trims whitespace around path components, so `"parms $ graphics $ lwd"` works.
-- `.create = TRUE` creates missing intermediate lists.
-- `.create = FALSE` errors on missing intermediate paths.
-- Rejects duplicate canonical paths rather than applying them in order.
-- Preserves top-level attributes/classes through ordinary R copy-modify semantics.
-- Does not modify the original input.
+```r
+deparse(x, width.cutoff = width.cutoff, control = control)
+```
 
-`input_form()`:
-- Uses `dput()` via `capture.output()` to generate pasteable R code.
-- Prints to console when `file = ""` and invisibly returns the character string.
-- Writes to a file when `file` is a filename and invisibly returns the same string.
-- Uses `control = "all"` by default to preserve attributes where `dput()` can.
-- `width.cutoff` is kept in the API, but current R’s `dput()` does not expose it directly, so it is validated but not passed through.
+It is validated as an integer-ish value from 20 to 500. Documentation notes this is an approximate deparse width, not a strict line-length guarantee.
+
+Final API:
+
+```r
+input_form(
+  x,
+  file = "",
+  append = FALSE,
+  control = "all",
+  width.cutoff = 60,
+  prefix = "",
+  suffix = "",
+  final.newline = TRUE,
+  overwrite = TRUE
+)
+```
+
+Append and overwrite:
+- `append = TRUE` appends to an existing file or creates a new one; overwrite protection is ignored.
+- `overwrite = TRUE` overwrites silently.
+- `overwrite = "warn"` warns and overwrites.
+- `overwrite = "error"` stops without overwriting.
+- `overwrite = FALSE` is treated like `"error"`.
+- `overwrite = "recover"` copies the existing file to `file.bak`, `file.bak1`, etc., then overwrites.
+
+Prefix/suffix/newline:
+- `prefix` is placed before the first deparsed line.
+- `suffix` is placed after the final deparsed line.
+- `final.newline = TRUE` makes the returned string and written/printed output end in `\n`.
+- `final.newline = FALSE` omits that final newline.
+- Returned text now exactly matches what is printed/written.
 
 Files changed:
 - [R/list_utils.R](/Users/earn/r/earnmisc/R/list_utils.R)
 - [tests/testthat/test-list_utils.R](/Users/earn/r/earnmisc/tests/testthat/test-list_utils.R)
-- [R/earnmisc-package.R](/Users/earn/r/earnmisc/R/earnmisc-package.R)
-- [NAMESPACE](/Users/earn/r/earnmisc/NAMESPACE)
-- generated docs for exported and internal helpers
+- [man/input_form.Rd](/Users/earn/r/earnmisc/man/input_form.Rd)
+- new internal helper docs from roxygen: `backup_file_path`, `normalise_overwrite`, `validate_character_scalar`, `validate_width_cutoff`, `write_input_form`
 
-Tests added:
-- top-level, nested, multiple, and `.create = TRUE` updates;
-- missing path and non-list descent errors;
-- class/attribute preservation;
-- original input immutability;
-- unnamed, empty, invalid, duplicate path validation;
-- `input_form()` console/file output;
-- parse/eval reconstruction of simple lists;
-- attribute preservation with default `control = "all"`.
+Tests added/revised for width cutoff, invalid widths, append modes, overwrite modes, recover backups, prefix/suffix parseability, exact final newline behaviour, reconstruction, and attribute preservation.
 
 Verification:
 - `make document`: passed.
 - `make test`: passed.
 - `make check`: passed with `Status: OK`.
 
-Limitations:
-- `update_list()` only supports simple `$`-separated names, not arbitrary R expressions.
-- `input_form()` depends on what `dput()` can reconstruct; it is not intended for environments, external pointers, or reference-semantics objects.
+Limitations remain: this is based on `deparse()`, not a full serializer; environments, external pointers, and reference-style objects may not reconstruct reliably.

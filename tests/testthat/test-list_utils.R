@@ -87,12 +87,31 @@ test_that("input_form prints and returns a character string invisibly", {
   expect_type(result$value, "character")
   expect_length(result$value, 1)
   expect_match(result$value, "list")
+  expect_true(endsWith(result$value, "\n"))
   expect_true(length(printed.output) > 0)
+})
+
+test_that("input_form width.cutoff is passed to deparse", {
+  x <- as.list(stats::setNames(1:20, paste0("long_name_", 1:20)))
+  narrow <- capture.output(narrow.result <- input_form(x, width.cutoff = 20))
+  wide <- capture.output(wide.result <- input_form(x, width.cutoff = 500))
+
+  expect_true(length(narrow) > 0)
+  expect_true(length(wide) > 0)
+  expect_false(identical(narrow.result, wide.result))
+  expect_true(length(strsplit(narrow.result, "\n", fixed = TRUE)[[1]]) >
+                length(strsplit(wide.result, "\n", fixed = TRUE)[[1]]))
+})
+
+test_that("input_form validates width.cutoff", {
+  expect_error(input_form(list(a = 1), width.cutoff = 19), "`width.cutoff`")
+  expect_error(input_form(list(a = 1), width.cutoff = 501), "`width.cutoff`")
+  expect_error(input_form(list(a = 1), width.cutoff = 20.5), "`width.cutoff`")
 })
 
 test_that("input_form output can reconstruct a simple list", {
   x <- list(a = 1, b = "two", c = list(TRUE))
-  txt <- suppressMessages(capture.output(returned <- input_form(x)))
+  txt <- capture.output(returned <- input_form(x))
   reconstructed.x <- eval(parse(text = returned))
 
   expect_true(length(txt) > 0)
@@ -108,15 +127,153 @@ test_that("input_form preserves simple attributes with default control", {
   expect_identical(attributes(reconstructed.x), attributes(x))
 })
 
-test_that("input_form writes to a temporary file", {
+test_that("input_form writes a new temporary file", {
   x <- list(a = 1)
   out.file <- tempfile(fileext = ".R")
   result <- withVisible(input_form(x, file = out.file))
 
   expect_false(result$visible)
   expect_true(file.exists(out.file))
-  expect_identical(readLines(out.file), strsplit(result$value, "\n", fixed = TRUE)[[1]])
+  expect_identical(
+    readChar(out.file, nchars = file.info(out.file)$size, useBytes = TRUE),
+    result$value
+  )
   expect_identical(eval(parse(file = out.file)), x)
+})
+
+test_that("input_form appends to an existing file", {
+  out.file <- tempfile(fileext = ".R")
+  first <- input_form(list(a = 1), file = out.file)
+  second <- input_form(list(b = 2), file = out.file, append = TRUE)
+
+  expect_identical(
+    readChar(out.file, nchars = file.info(out.file)$size, useBytes = TRUE),
+    paste0(first, second)
+  )
+})
+
+test_that("input_form append TRUE creates a file and ignores overwrite protection", {
+  out.file <- tempfile(fileext = ".R")
+  result <- input_form(list(a = 1), file = out.file, append = TRUE, overwrite = "error")
+
+  expect_true(file.exists(out.file))
+  expect_identical(
+    readChar(out.file, nchars = file.info(out.file)$size, useBytes = TRUE),
+    result
+  )
+})
+
+test_that("input_form overwrite TRUE overwrites silently", {
+  out.file <- tempfile(fileext = ".R")
+  writeLines("old <- TRUE", out.file)
+
+  expect_silent(result <- input_form(list(a = 1), file = out.file, overwrite = TRUE))
+  expect_identical(
+    readChar(out.file, nchars = file.info(out.file)$size, useBytes = TRUE),
+    result
+  )
+})
+
+test_that("input_form overwrite warn warns and overwrites", {
+  out.file <- tempfile(fileext = ".R")
+  writeLines("old <- TRUE", out.file)
+
+  expect_warning(
+    result <- input_form(list(a = 1), file = out.file, overwrite = "warn"),
+    "Overwriting existing file"
+  )
+  expect_identical(
+    readChar(out.file, nchars = file.info(out.file)$size, useBytes = TRUE),
+    result
+  )
+})
+
+test_that("input_form overwrite error does not overwrite", {
+  out.file <- tempfile(fileext = ".R")
+  writeLines("old <- TRUE", out.file)
+
+  expect_error(input_form(list(a = 1), file = out.file, overwrite = "error"), "File already exists")
+  expect_identical(readLines(out.file), "old <- TRUE")
+})
+
+test_that("input_form overwrite FALSE behaves like error", {
+  out.file <- tempfile(fileext = ".R")
+  writeLines("old <- TRUE", out.file)
+
+  expect_error(input_form(list(a = 1), file = out.file, overwrite = FALSE), "File already exists")
+  expect_identical(readLines(out.file), "old <- TRUE")
+})
+
+test_that("input_form overwrite recover creates backup and overwrites", {
+  out.file <- tempfile(fileext = ".R")
+  writeLines("old <- TRUE", out.file)
+
+  expect_warning(
+    result <- input_form(list(a = 1), file = out.file, overwrite = "recover"),
+    "backup"
+  )
+
+  expect_identical(
+    readChar(out.file, nchars = file.info(out.file)$size, useBytes = TRUE),
+    result
+  )
+  expect_true(file.exists(paste0(out.file, ".bak")))
+  expect_identical(readLines(paste0(out.file, ".bak")), "old <- TRUE")
+})
+
+test_that("input_form append TRUE does not trigger overwrite protection", {
+  out.file <- tempfile(fileext = ".R")
+  writeLines("old <- TRUE", out.file)
+
+  expect_silent(input_form(list(a = 1), file = out.file, append = TRUE, overwrite = "error"))
+  expect_true(length(readLines(out.file)) > 1)
+})
+
+test_that("input_form applies prefix and suffix", {
+  result <- capture.output(
+    text <- input_form(
+      list(a = 1, b = 2),
+      prefix = "new.list <- ",
+      suffix = " # revised list",
+      final.newline = FALSE
+    )
+  )
+  env <- new.env(parent = baseenv())
+
+  expect_true(length(result) > 0)
+  expect_true(startsWith(text, "new.list <- "))
+  expect_true(endsWith(text, " # revised list"))
+  eval(parse(text = text), envir = env)
+  expect_identical(env$new.list, list(a = 1, b = 2))
+})
+
+test_that("input_form validates prefix, suffix, append, final.newline, and overwrite", {
+  expect_error(input_form(list(a = 1), prefix = c("a", "b")), "`prefix`")
+  expect_error(input_form(list(a = 1), suffix = NA_character_), "`suffix`")
+  expect_error(input_form(list(a = 1), append = NA), "`append`")
+  expect_error(input_form(list(a = 1), final.newline = NA), "`final.newline`")
+  expect_error(input_form(list(a = 1), overwrite = "replace"), "`overwrite`")
+})
+
+test_that("input_form final.newline controls returned and written text", {
+  with.newline <- capture.output(
+    with.newline.result <- input_form(list(a = 1), final.newline = TRUE)
+  )
+  without.newline <- capture.output(
+    without.newline.result <- input_form(list(a = 1), final.newline = FALSE)
+  )
+  out.file <- tempfile(fileext = ".R")
+  file.result <- input_form(list(a = 1), file = out.file, final.newline = FALSE)
+
+  expect_true(length(with.newline) > 0)
+  expect_true(length(without.newline) > 0)
+  expect_true(endsWith(with.newline.result, "\n"))
+  expect_false(endsWith(without.newline.result, "\n"))
+  expect_false(endsWith(file.result, "\n"))
+  expect_identical(
+    readChar(out.file, nchars = file.info(out.file)$size, useBytes = TRUE),
+    file.result
+  )
 })
 
 test_that("input_form default control preserves attributes better than NULL", {

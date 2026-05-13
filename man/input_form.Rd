@@ -4,28 +4,55 @@
 \alias{input_form}
 \title{Print an object as pasteable R input}
 \usage{
-input_form(x, file = "", control = "all", width.cutoff = 60)
+input_form(
+  x,
+  file = "",
+  append = FALSE,
+  control = "all",
+  width.cutoff = 60,
+  prefix = "",
+  suffix = "",
+  final.newline = TRUE,
+  overwrite = TRUE
+)
 }
 \arguments{
 \item{x}{Object to represent as R code.}
 
 \item{file}{Filename to write to, or \code{""} to print to the console.}
 
-\item{control}{Control argument passed to \code{\link[=dput]{dput()}}. The default \code{"all"}
+\item{append}{Logical scalar. If \code{TRUE} and \code{file} is a filename, append to
+the file or create it if it does not exist. Ignored when \code{file = ""}.}
+
+\item{control}{Control argument passed to \code{\link[=deparse]{deparse()}}. The default \code{"all"}
 preserves attributes where possible.}
 
-\item{width.cutoff}{Width cutoff retained for API compatibility. Current R
-versions do not expose this argument in \code{\link[=dput]{dput()}}.}
+\item{width.cutoff}{Integer-ish scalar between 20 and 500 passed to
+\code{\link[=deparse]{deparse()}}. It controls the approximate line width used while deparsing,
+but is not a strict maximum line length.}
+
+\item{prefix, suffix}{Character scalars added before the first deparsed line
+and after the final deparsed line.}
+
+\item{final.newline}{Logical scalar. If \code{TRUE}, add a final newline to the
+generated text.}
+
+\item{overwrite}{Controls behaviour when \code{file} exists and \code{append = FALSE}.
+\code{TRUE} overwrites silently, \code{"warn"} warns then overwrites, \code{"recover"}
+copies the existing file to a \code{.bak}, \code{.bak1}, ... backup before
+overwriting, and \code{"error"} stops. \code{FALSE} is accepted as a synonym for
+\code{"error"}. When \code{append = TRUE}, existing files are appended to and
+overwrite protection is not applied.}
 }
 \value{
-A character scalar containing the generated R code. The value is
-returned invisibly when it is also printed to the console or written to a
-file.
+A character scalar containing exactly the generated text, including
+the final newline when \code{final.newline = TRUE}. The value is returned
+invisibly when it is printed to the console or written to a file.
 }
 \description{
 Produce R code that can usually be pasted elsewhere to reconstruct an object.
-This is a friendly wrapper around \code{\link[=dput]{dput()}}, intended mainly for ordinary R
-objects and nested lists.
+This is a friendly wrapper around \code{\link[=deparse]{deparse()}}, intended mainly for ordinary
+R objects and nested lists.
 }
 \details{
 Exact reconstruction is not guaranteed for every possible object, especially
@@ -33,10 +60,18 @@ environments, external pointers, or objects with nontrivial reference
 semantics.
 }
 \examples{
-txt <- input_form(list(a = 1, b = "two"))
+txt <- input_form(list(a = 1, b = "two"), final.newline = FALSE)
+input_form(list(a = 1, b = "two"), prefix = "new.list <- ")
 
 out.file <- tempfile(fileext = ".R")
 input_form(list(a = 1), file = out.file)
+input_form(list(b = 2), file = out.file, append = TRUE)
 readLines(out.file)
+
+existing.file <- tempfile(fileext = ".R")
+writeLines("old <- TRUE", existing.file)
+try(input_form(list(a = 1), file = existing.file, overwrite = "error"))
+
+input_form(list(a = 1), final.newline = FALSE)
 
 }

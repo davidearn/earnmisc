@@ -1,14 +1,9 @@
 # Latest Codex Prompt
 
-- Entry ID: `20260513T124935Z`
-- Recorded: `2026-05-13T12:49:35+00:00`
+- Entry ID: `20260513T135047Z`
+- Recorded: `2026-05-13T13:50:47+00:00`
 
-Please add two list utility functions to `earnmisc`:
-
-```r
-update_list()
-input_form()
-```
+Please revise `earnmisc::input_form()`.
 
 Read `AGENTS.md` first and follow it closely.
 
@@ -16,226 +11,238 @@ Do not modify `tools/`.
 Do not run `make prompt`, `make response`, or `make record.commit`.
 Do not create Git commits.
 
-## Goal
+## Current implementation
 
-Add small, dependency-free utilities for:
-
-1. Updating selected elements of a possibly nested list while preserving other elements and attributes/classes.
-2. Producing pasteable R code that reconstructs an object, especially a list.
-
-Avoid tidyverse dependencies.
-
-## `update_list()`
-
-Please implement and export:
+`input_form()` currently uses:
 
 ```r
-update_list <- function(x, ..., .create = FALSE)
+output.lines <- utils::capture.output(
+  dput(x, control = control)
+)
+output.text <- paste(output.lines, collapse = "\n")
 ```
 
-The function should return a modified copy of `x`.
+It validates `width.cutoff`, but `width.cutoff` is otherwise ignored because current R’s `dput()` does not expose a `width.cutoff` argument.
 
-Examples:
+## Requested changes
 
-```r
-x.new <- update_list(x, type = "new")
-x.new <- update_list(x, "parms$graphics$lwd" = 3)
-x.new <- update_list(x,
-                     type = "new",
-                     "parms$graphics$lwd" = 3)
-```
+Please revise `input_form()` to make `width.cutoff` meaningful and to add more control over file output and generated text.
 
-### Path syntax
-
-Named arguments in `...` should identify elements to update.
-
-Top-level names should update top-level list elements:
-
-```r
-update_list(x, type = "new")
-```
-
-Path strings using `$` should update nested list elements:
-
-```r
-update_list(x, "parms$graphics$lwd" = 3)
-```
-
-This should be equivalent to:
-
-```r
-x$parms$graphics$lwd <- 3
-```
-
-Please support simple `$`-separated names only in this first implementation. Do not try to parse arbitrary R expressions.
-
-If names contain whitespace around `$`, trim it:
-
-```r
-"parms $ graphics $ lwd"
-```
-
-should be treated like:
-
-```r
-"parms$graphics$lwd"
-```
-
-### Creation behaviour
-
-If `.create = FALSE`, updating a nested path should require all intermediate list elements to exist. Missing paths should give a clear error.
-
-If `.create = TRUE`, missing intermediate elements should be created as lists.
-
-For example:
-
-```r
-update_list(list(), "parms$graphics$lwd" = 3, .create = TRUE)
-```
-
-should return:
-
-```r
-list(parms = list(graphics = list(lwd = 3)))
-```
-
-### Attribute and class preservation
-
-`update_list()` should preserve attributes and class of the top-level object where possible.
-
-For example, if `x` has a class with print or summary methods, the returned object should keep that class.
-
-Please add tests for attribute/class preservation.
-
-### Validation
-
-Please validate inputs clearly:
-
-- `x` should be a list-like object.
-- all updates must be named;
-- names must be non-empty;
-- path components must be non-empty;
-- duplicate update paths should either be applied in order or rejected. Please choose the cleaner behaviour and document it.
-- paths that try to descend into a non-list object should error clearly unless replacement occurs exactly at that path.
-
-### Implementation
-
-Use base R only.
-
-It is fine to add non-exported helpers such as:
-
-```r
-parse_list_path()
-set_list_path()
-```
-
-Document non-exported helpers with roxygen2 comments, following `AGENTS.md`.
-
-## `input_form()`
-
-Please implement and export:
+Suggested revised API:
 
 ```r
 input_form <- function(
   x,
   file = "",
+  append = FALSE,
   control = "all",
-  width.cutoff = 60
+  width.cutoff = 60,
+  prefix = "",
+  suffix = "",
+  final.newline = TRUE,
+  overwrite = TRUE
 )
 ```
 
-The purpose is to produce R code that can be pasted elsewhere to reconstruct `x`.
+Use this exact API unless there is a strong reason to adjust it.
 
-This should be a friendly wrapper around `dput()`.
+## `width.cutoff`
 
-### Behaviour
+`width.cutoff` should control the deparse width as much as base R allows.
 
-If called as:
-
-```r
-input_form(x)
-```
-
-it should print/cat the result to the console, like `cat()`, and invisibly return the result as a single character string.
-
-If called as:
+Rather than using `capture.output(dput(...))`, use `deparse()` directly, for example:
 
 ```r
-txt <- input_form(x)
+output.lines <- deparse(
+  x,
+  width.cutoff = width.cutoff,
+  control = control
+)
 ```
 
-`txt` should receive the character string invisibly? Please consider R conventions carefully here.
+Then collapse lines manually.
 
-My preference:
-- always return the character string, visibly or invisibly according to what is most natural;
-- when `file = ""`, cat the string to the console;
-- when `file` is a filename, write the string to the file and return the string invisibly.
+Please update the documentation to explain that `width.cutoff` is passed to `deparse()` and controls the approximate line width used during deparsing; it is not a strict maximum line length.
 
-If a visible return plus console output would duplicate output annoyingly at the console, use invisible return when printing/writing.
+Keep validation sensible. Base R `deparse()` requires `width.cutoff` to be an integer-ish value between 20 and 500. Please validate accordingly.
 
-For file output:
+## `append`
+
+Add an `append` argument modelled on `cat()`/`write()` conventions.
+
+Behaviour:
+- If `file = ""`, `append` should have no practical effect.
+- If `file` is a filename and `append = FALSE`, write a fresh file subject to `overwrite`.
+- If `file` is a filename and `append = TRUE`, append to the existing file if it exists, or create it if it does not.
+
+Use `cat()` or `writeLines()` in a way that handles `append` cleanly.
+
+## `overwrite`
+
+Add an `overwrite` argument controlling what happens when `file` already exists and `append = FALSE`.
+
+Allowed values:
 
 ```r
-input_form(x, file = "blah.R")
+TRUE
+"warn"
+"recover"
+"error"
 ```
 
-should write the generated R code to `blah.R`.
+Behaviour:
+- `overwrite = TRUE`: overwrite silently, matching current behaviour.
+- `overwrite = "warn"`: warn that the existing file is being overwritten, then overwrite.
+- `overwrite = "recover"`: before overwriting, copy the existing file to a recoverable backup path, warn with the backup filename, then overwrite.
+- `overwrite = "error"`: stop with an informative error and do not overwrite.
 
-Use `dput()` internally, likely via a text connection or `capture.output()`.
+Please also accept `overwrite = FALSE` as a synonym for `"error"` if that seems natural.
 
-Preserve attributes as much as `dput()` can. Use `control = "all"` by default.
+For `overwrite = "recover"`, choose a simple backup filename that avoids clobbering existing backups, for example:
 
-### Limitations
+```text
+blah.R.bak
+blah.R.bak1
+blah.R.bak2
+```
 
-Document that exact reconstruction is not guaranteed for every possible R object. This is mainly intended for ordinary R objects and nested lists, not environments, external pointers, or objects with nontrivial reference semantics.
+or a timestamped backup such as:
+
+```text
+blah.R.20260513-143012.bak
+```
+
+Use a simple, documented design.
+
+If `append = TRUE`, do not treat an existing file as an overwrite; append to it. In that case, `overwrite` should be ignored or only validated. Please document this.
+
+## `prefix` and `suffix`
+
+Add `prefix` and `suffix` arguments.
+
+These should be character scalars.
+
+The final generated text should be:
+
+```r
+paste0(prefix, deparsed.object, suffix)
+```
+
+or the multiline equivalent.
+
+Examples:
+
+```r
+input_form(my.list, prefix = "new.list <- ")
+input_form(my.list, prefix = "new.list <- ", suffix = " # revised list")
+```
+
+For multiline deparse output, `prefix` should appear before the first line and `suffix` after the final line. For example, this is acceptable:
+
+```r
+new.list <- list(
+  a = 1,
+  b = 2
+) # revised list
+```
+
+Please add tests for prefix and suffix.
+
+## Final newline
+
+Currently console/file output includes a final newline. This is a good default, but it should be controllable.
+
+Add:
+
+```r
+final.newline = TRUE
+```
+
+Behaviour:
+- If `final.newline = TRUE`, console and file output should end with a newline.
+- If `final.newline = FALSE`, console and file output should not add a final newline.
+- The returned character scalar should match exactly what was written/printed, including the final newline if `final.newline = TRUE`.
+
+This is a change from the current implementation if the current returned string excludes the final newline. Please document the exact return value clearly.
+
+## Return value
+
+Return a character scalar containing exactly the generated text.
+
+If the text is printed to the console or written to a file, return it invisibly.
+
+Current behaviour already returns invisibly when printing or writing; please preserve that convention.
 
 ## Documentation
 
-Add roxygen2 documentation for both exported functions.
+Update roxygen2 documentation for `input_form()`.
+
+Please document:
+- that it is based on `deparse()` rather than a full serializer;
+- how `width.cutoff` works and that it is not a strict line-length guarantee;
+- `append`;
+- `overwrite`;
+- backup behaviour for `overwrite = "recover"`;
+- `prefix` and `suffix`;
+- `final.newline`;
+- limitations for environments, external pointers, reference objects, and other objects that cannot be reconstructed reliably from deparsed code.
 
 Use Canadian spelling.
 
 Examples should be lightweight and check-friendly.
 
-Examples for `update_list()` should include:
-- top-level update;
-- nested update with `$` path;
-- `.create = TRUE`.
-
-Examples for `input_form()` should include:
-- generating a pasteable string;
-- writing to a temporary file.
+Add examples for:
+- assignment prefix;
+- file append;
+- `overwrite = "error"` or `"warn"` if easy to show safely with `tempfile()`;
+- `final.newline = FALSE`.
 
 ## Tests
 
-Add `testthat` tests for `update_list()`:
+Add or revise tests for:
 
-- top-level update;
-- nested update;
-- multiple updates;
-- `.create = TRUE`;
-- missing path error when `.create = FALSE`;
-- descending into non-list error;
-- class and attributes preserved;
-- original input is not modified;
-- unnamed update error;
-- duplicate paths behaviour.
+### Width cutoff
+- `width.cutoff` is passed to `deparse()` and changes output for a suitable object.
+- invalid `width.cutoff` values error clearly.
+- Documentation/test comments should not imply strict maximum line length.
 
-Add `testthat` tests for `input_form()`:
+### Append
+- `append = FALSE` writes a new file.
+- `append = TRUE` appends to an existing file.
+- `append = TRUE` creates a file if it does not already exist.
 
-- returns/captures a character string;
-- output can be parsed and evaluated to reconstruct a simple list;
-- attributes are preserved for simple attributed objects;
-- writes to a temporary file;
-- default `control = "all"` preserves attributes better than `control = NULL`, if this can be tested cleanly.
+### Overwrite
+- existing file + `overwrite = TRUE` overwrites silently.
+- existing file + `overwrite = "warn"` warns and overwrites.
+- existing file + `overwrite = "error"` errors and does not overwrite.
+- existing file + `overwrite = FALSE` behaves like `"error"` if you choose to support that.
+- existing file + `overwrite = "recover"` creates a backup and overwrites.
+- `append = TRUE` does not trigger overwrite protection.
 
-Avoid brittle tests for objects that `dput()` cannot reliably reconstruct.
+### Prefix/suffix
+- prefix is prepended to the generated object form.
+- suffix is appended to the generated object form.
+- prefixed assignment text can be parsed and evaluated when appropriate.
 
-## Package docs
+### Final newline
+- `final.newline = TRUE` includes a trailing newline in the returned string and output.
+- `final.newline = FALSE` does not include a trailing newline.
 
-Update package-level documentation if appropriate.
+### Reconstruction
+- simple lists can still be parsed/evaluated to reconstruct the original object.
+- simple attributes are still preserved with `control = "all"` where base R supports this.
 
-Regenerate documentation and NAMESPACE.
+## Internal helpers
+
+It is fine to add non-exported helpers, for example:
+
+```r
+normalise_overwrite()
+backup_file_path()
+write_input_form()
+```
+
+Document non-exported helpers with roxygen2 comments, following `AGENTS.md`.
 
 ## Verification
 
@@ -248,11 +255,11 @@ make check
 ```
 
 Please report:
-1. What API was implemented.
-2. How nested update paths are specified.
-3. How attributes/classes are preserved.
-4. How `input_form()` uses `dput()`.
-5. What limitations remain.
+1. How `width.cutoff` is now implemented.
+2. What the final `input_form()` API is.
+3. How append and overwrite behaviour work.
+4. How backup/recover behaviour works.
+5. How prefix, suffix, and final newline are handled.
 6. What files changed.
-7. What tests were added.
+7. What tests were added or revised.
 8. What verification commands were run and their results.
