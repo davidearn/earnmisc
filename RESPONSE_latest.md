@@ -1,45 +1,26 @@
 # Latest Codex Response Summary
 
-- Entry ID: `20260513T153935Z`
-- Recorded: `2026-05-13T15:42:39+00:00`
+- Entry ID: `20260513T201910Z`
+- Recorded: `2026-05-13T20:20:36+00:00`
 
-Added the colour-swatch helpers.
+Updated the roxygen documentation for `show_colours()` and `show_oi_colours()` only. Function behaviour did not change.
 
-Functions added:
-- `show_colours()`
-- `show_oi_colours()`
+Added/revised documentation:
+- Added a `Palette design workflow` section to both help pages.
+- Added optional resources: `colorspace`, `khroma`, `paletteer`, Adobe Color, and Coolors, with links.
+- Added a practical workflow from rough palette ideas to R inspection.
+- Added built-in R colour examples using `colours()`.
+- Mentioned that base R has 657 built-in named colours and that `colors()` is an alias.
 
-Grid layout:
-- If neither `nrow` nor `ncol` is supplied:
-  `ncol <- ceiling(sqrt(n))`, `nrow <- ceiling(n / ncol)`.
-- If one dimension is supplied, the other is computed.
-- If both are supplied, the grid must have enough cells.
-
-Label text colour:
-- If `text.colour = NULL`, it uses a simple luminance calculation from `grDevices::col2rgb()`.
-- Light swatches get black text; dark swatches get white text.
-
-Implementation:
-- Uses base graphics only.
-- Draws all swatches in one plot region with `rect()` and labels with `text()`.
-- Restores graphics parameters with `on.exit(par(old.par), add = TRUE)`.
-- `...` is passed to `graphics::text()`.
+Examples:
+- Added check-friendly `show_colours(colours()[1:16])`.
+- Added the full built-in-colour browsing loop protected with `\dontrun{}`:
+  `for (i in 1:41) show_colours(...)`.
 
 Files changed:
 - [R/show_colours.R](/Users/earn/r/earnmisc/R/show_colours.R)
-- [tests/testthat/test-show_colours.R](/Users/earn/r/earnmisc/tests/testthat/test-show_colours.R)
-- [R/earnmisc-package.R](/Users/earn/r/earnmisc/R/earnmisc-package.R)
-- [NAMESPACE](/Users/earn/r/earnmisc/NAMESPACE)
-- generated docs for exported and internal helpers
-
-Tests added:
-- invisible return values.
-- named, unnamed, and label-free colours.
-- automatic and explicit grid dimensions.
-- contrast text helper.
-- graphics parameter restoration.
-- invalid colour errors.
-- `show_oi_colours()` default, original palette, and alpha behaviour.
+- [man/show_colours.Rd](/Users/earn/r/earnmisc/man/show_colours.Rd)
+- [man/show_oi_colours.Rd](/Users/earn/r/earnmisc/man/show_oi_colours.Rd)
 
 Verification:
 - `make document`: passed.

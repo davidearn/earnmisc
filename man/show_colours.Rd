@@ -47,8 +47,43 @@ Draw a simple base-graphics display of colours as rectangular swatches.
 This is a lightweight helper for quickly inspecting any R colour vector.
 Graphics parameters are restored after plotting.
 }
+\section{Palette design workflow}{
+
+\code{show_colours()} is a lightweight in-R inspection helper. For broader
+palette design, browsing, and accessibility checks, optional complementary
+tools can be useful:
+\itemize{
+\item \href{https://cran.r-project.org/package=colorspace}{colorspace} helps design,
+tune, and evaluate palettes, including colour-vision-deficiency checks.
+\item \href{https://cran.r-project.org/package=khroma}{khroma} provides pre-vetted
+scientific palettes and diagnostic tools for colour-blind-safe
+visualisation.
+\item \href{https://cran.r-project.org/package=paletteer}{paletteer} gives a unified
+way to browse many R palette families.
+\item \href{https://color.adobe.com/create/color-accessibility}{Adobe Color} is useful
+for harmony-based palette exploration and colour-contrast checks.
+\item \href{https://coolors.co/}{Coolors} is useful for quickly generating, locking,
+and exploring palettes.
+}
+
+A practical workflow is to prototype candidate colours in Adobe Color or
+Coolors, bring the hex colours into R, inspect and tune them with
+\code{colorspace}, check accessibility with \code{khroma} or another accessibility
+tool, and then compare final candidates directly with \code{show_colours()}.
+}
+
 \examples{
 show_colours(c(red = "red", blue = "blue"))
 show_colours(c("#000000", "#FFFFFF"), labels = NULL)
+
+## Base R includes 657 built-in named colours. `colors()` is an alias.
+show_colours(colours()[1:16])
+
+\dontrun{
+## Browse all built-in named colours in groups of 16.
+for (i in 1:41) {
+  show_colours(colours()[(1 + 16 * (i - 1)):(16 * i)])
+}
+}
 
 }

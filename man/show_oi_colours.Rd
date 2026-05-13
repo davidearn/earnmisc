@@ -22,8 +22,24 @@ Invisibly returns the displayed colour vector.
 Convenience wrapper around \code{\link[=okabe_ito_colours]{okabe_ito_colours()}} and \code{\link[=show_colours]{show_colours()}} for
 displaying the package Okabe-Ito palette.
 }
+\section{Palette design workflow}{
+
+\code{show_oi_colours()} is a quick way to inspect the package Okabe-Ito palette
+in the current graphics device. For designing or comparing custom palettes,
+\href{https://cran.r-project.org/package=colorspace}{colorspace} is useful for
+tuning palettes and checking colour-vision-deficiency behaviour,
+\href{https://cran.r-project.org/package=khroma}{khroma} provides pre-vetted
+scientific palettes and diagnostics, and
+\href{https://cran.r-project.org/package=paletteer}{paletteer} helps browse many
+palette families through one interface. External tools such as
+\href{https://color.adobe.com/create/color-accessibility}{Adobe Color} and
+\href{https://coolors.co/}{Coolors} can also help move quickly from rough palette
+ideas to hex colours that can be inspected in R.
+}
+
 \examples{
 show_oi_colours()
 show_oi_colours(extended = FALSE)
+show_colours(okabe_ito_colours()[1:4])
 
 }

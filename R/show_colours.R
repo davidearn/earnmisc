@@ -19,9 +19,41 @@
 #'
 #' @return Invisibly returns `colours`.
 #'
+#' @section Palette design workflow:
+#' `show_colours()` is a lightweight in-R inspection helper. For broader
+#' palette design, browsing, and accessibility checks, optional complementary
+#' tools can be useful:
+#'
+#' * [colorspace](https://cran.r-project.org/package=colorspace) helps design,
+#'   tune, and evaluate palettes, including colour-vision-deficiency checks.
+#' * [khroma](https://cran.r-project.org/package=khroma) provides pre-vetted
+#'   scientific palettes and diagnostic tools for colour-blind-safe
+#'   visualisation.
+#' * [paletteer](https://cran.r-project.org/package=paletteer) gives a unified
+#'   way to browse many R palette families.
+#' * [Adobe Color](https://color.adobe.com/create/color-accessibility) is useful
+#'   for harmony-based palette exploration and colour-contrast checks.
+#' * [Coolors](https://coolors.co/) is useful for quickly generating, locking,
+#'   and exploring palettes.
+#'
+#' A practical workflow is to prototype candidate colours in Adobe Color or
+#' Coolors, bring the hex colours into R, inspect and tune them with
+#' `colorspace`, check accessibility with `khroma` or another accessibility
+#' tool, and then compare final candidates directly with `show_colours()`.
+#'
 #' @examples
 #' show_colours(c(red = "red", blue = "blue"))
 #' show_colours(c("#000000", "#FFFFFF"), labels = NULL)
+#'
+#' ## Base R includes 657 built-in named colours. `colors()` is an alias.
+#' show_colours(colours()[1:16])
+#'
+#' \dontrun{
+#' ## Browse all built-in named colours in groups of 16.
+#' for (i in 1:41) {
+#'   show_colours(colours()[(1 + 16 * (i - 1)):(16 * i)])
+#' }
+#' }
 #'
 #' @export
 show_colours <- function(colours,
@@ -121,9 +153,23 @@ show_colours <- function(colours,
 #'
 #' @return Invisibly returns the displayed colour vector.
 #'
+#' @section Palette design workflow:
+#' `show_oi_colours()` is a quick way to inspect the package Okabe-Ito palette
+#' in the current graphics device. For designing or comparing custom palettes,
+#' [colorspace](https://cran.r-project.org/package=colorspace) is useful for
+#' tuning palettes and checking colour-vision-deficiency behaviour,
+#' [khroma](https://cran.r-project.org/package=khroma) provides pre-vetted
+#' scientific palettes and diagnostics, and
+#' [paletteer](https://cran.r-project.org/package=paletteer) helps browse many
+#' palette families through one interface. External tools such as
+#' [Adobe Color](https://color.adobe.com/create/color-accessibility) and
+#' [Coolors](https://coolors.co/) can also help move quickly from rough palette
+#' ideas to hex colours that can be inspected in R.
+#'
 #' @examples
 #' show_oi_colours()
 #' show_oi_colours(extended = FALSE)
+#' show_colours(okabe_ito_colours()[1:4])
 #'
 #' @export
 show_oi_colours <- function(extended = TRUE,

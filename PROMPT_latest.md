@@ -1,9 +1,9 @@
 # Latest Codex Prompt
 
-- Entry ID: `20260513T153935Z`
-- Recorded: `2026-05-13T15:39:35+00:00`
+- Entry ID: `20260513T201910Z`
+- Recorded: `2026-05-13T20:19:10+00:00`
 
-Please add colour-swatch display helpers to `earnmisc`.
+Please expand the `show_colours()` and `show_oi_colours()` roxygen documentation in `earnmisc`.
 
 Read `AGENTS.md` first and follow it closely.
 
@@ -13,143 +13,145 @@ Do not create Git commits.
 
 ## Goal
 
-Add a small base-graphics helper that displays colours as labelled swatches, so I can quickly glance at a palette and choose colours for plotting.
+Improve the documentation for the colour-swatch helpers by adding practical examples and brief guidance on choosing complementary, harmonious, and accessible colours.
 
-Existing packages have related tools, for example `RColorBrewer::display.brewer.pal()` for Brewer palettes and `unikn::seecol()` for general colour inspection, but I want a small dependency-free helper in `earnmisc` that works naturally with the Okabe--Ito colours already provided by this package.
+Do not change the behaviour of `show_colours()` or `show_oi_colours()` in this task unless a tiny documentation-example cleanup requires it.
 
-## API
+## Built-in R colour example
 
-Please implement and export:
+Please add an example showing how to browse R’s built-in named colours using `show_colours()`.
 
-```r
-show_colours()
-show_oi_colours()
-```
+Base R’s `colours()` / `colors()` returns 657 built-in colour names. Please mention this in the documentation.
 
-Use Canadian spelling for the function names.
-
-Suggested API:
+Add an example along these lines:
 
 ```r
-show_colours <- function(
-  colours,
-  labels = names(colours),
-  nrow = NULL,
-  ncol = NULL,
-  main = NULL,
-  border = "grey30",
-  text.colour = NULL,
-  cex = 0.9,
-  mar = c(0, 0, 2, 0),
-  ...
-)
+for (i in 1:41) {
+  show_colours(colours()[(1 + 16 * (i - 1)):(16 * i)])
+}
 ```
 
-and:
+However, please make the example check-friendly. Since this opens many plots, put it in `\dontrun{}` or otherwise protect it from being run during checks.
+
+Also consider adding a smaller check-friendly example, for example:
 
 ```r
-show_oi_colours <- function(
-  extended = TRUE,
-  alpha = NULL,
-  ...
-)
+show_colours(colours()[1:16])
 ```
 
-`show_oi_colours()` should call `okabe_ito_colours(extended = extended, alpha = alpha)` and then call `show_colours()`.
+Use `colours()` in examples and prose, consistent with Canadian spelling, but it is fine to mention that `colors()` is the US-spelling alias.
 
-## Behaviour
+## Further resources section
 
-### `show_colours()`
-
-`show_colours()` should:
-
-- accept a character vector of R colours;
-- use `labels = names(colours)` by default;
-- draw one rectangular swatch per colour using base graphics;
-- arrange swatches in a grid using `par(mfrow = ...)` or an equivalent base-graphics layout;
-- choose a reasonable grid automatically if `nrow` and `ncol` are not supplied;
-- label each swatch with the corresponding colour name or label;
-- preserve and restore the user’s graphics parameters with `on.exit(par(old.par), add = TRUE)`;
-- return the input colour vector invisibly.
-
-If `labels = NULL`, draw swatches without labels.
-
-If colours are unnamed and `labels` is missing, use the colour values themselves as labels.
-
-If `text.colour = NULL`, choose black or white text automatically based on the background colour luminance. Keep this simple and deterministic.
-
-The function should pass `...` to `graphics::text()` or, if more sensible, to the internal labelling call. Document what `...` is used for.
-
-### `show_oi_colours()`
-
-`show_oi_colours()` should:
-
-- display the default extended Okabe--Ito palette by default;
-- support `extended = FALSE`;
-- support `alpha`;
-- pass layout/labelling arguments through `...` to `show_colours()`;
-- return the displayed colour vector invisibly.
-
-## Layout
-
-If both `nrow` and `ncol` are `NULL`, choose a compact grid automatically.
-
-A simple approach is:
+Please add a short roxygen section, perhaps called:
 
 ```r
-ncol <- ceiling(sqrt(n))
-nrow <- ceiling(n / ncol)
+@section Further resources:
 ```
 
-If one of `nrow` or `ncol` is supplied, compute the other.
+or:
 
-Validate that the grid has enough cells for all colours.
+```r
+@section Palette design workflow:
+```
 
-Use base graphics only.
+Keep this section practical and concise.
 
-## Documentation
+Mention that `show_colours()` is a lightweight in-R inspection helper, and that users who want help designing or browsing palettes may also find other tools useful.
 
-Add roxygen2 documentation for both exported functions.
+## Suggested R packages
 
-Document:
-- that these are simple base-graphics swatch displays;
-- that `show_oi_colours()` is a convenience wrapper for the Okabe--Ito palette;
-- that `show_colours()` accepts any R colour vector;
-- that graphics parameters are restored after plotting.
+Mention these R packages as complementary resources, with clickable links in the rendered help where practical.
 
-Use Canadian spelling.
+Use roxygen markdown links where appropriate.
 
-Examples should be lightweight and check-friendly. Since these functions draw plots, wrap examples in `if (interactive())` if needed, or keep them simple enough for checks.
+### `colorspace`
+
+Mention that `colorspace` is especially useful when the user wants to design, tune, or evaluate colour palettes.
+
+Mention that it includes tools for palette design and colour-vision-deficiency assessment.
+
+CRAN link:
+
+```text
+https://cran.r-project.org/package=colorspace
+```
+
+### `khroma`
+
+Mention that `khroma` is especially useful when the user wants strong pre-vetted scientific palettes and diagnostic tools, especially for colour-blind-safe visualisation.
+
+CRAN link:
+
+```text
+https://cran.r-project.org/package=khroma
+```
+
+### `paletteer`
+
+Mention that `paletteer` is especially useful when the user wants to browse many palette families quickly through a unified interface.
+
+CRAN link:
+
+```text
+https://cran.r-project.org/package=paletteer
+```
+
+Please present these as suggestions, not dependencies. Do not add any of these packages to `DESCRIPTION`.
+
+## Suggested external tools
+
+Mention a couple of external palette tools for rapid exploration.
+
+### Adobe Color
+
+Mention that Adobe Color is useful for harmony-based palette exploration and includes accessibility / colour-contrast tools.
+
+Link:
+
+```text
+https://color.adobe.com/create/color-accessibility
+```
+
+### Coolors
+
+Mention that Coolors is useful for quickly generating, locking, and exploring palettes.
+
+Link:
+
+```text
+https://coolors.co/
+```
+
+## Suggested workflow
+
+Add a short practical workflow suggestion, for example:
+
+1. Prototype candidate colours in Adobe Color or Coolors.
+2. Bring the candidate hex colours into R.
+3. Inspect and tune them with `colorspace`.
+4. Check accessibility and distinguishability with `khroma` or an accessibility tool.
+5. Use `show_colours()` to compare the final candidates directly inside the package workflow.
+
+Keep this brief and user-facing.
+
+## Style requirements
+
+- Keep the main function documentation clear and concise.
+- Do not turn the help page into a long essay.
+- Keep wording practical rather than academic.
+- Do not overstate that any one tool is “best”.
+- Present external packages and websites as optional resources that complement `show_colours()`.
+- Emphasize moving from rough palette ideas to inspectable colours in R.
+- Use Canadian spelling in prose.
+- Preserve existing examples unless they need minor cleanup.
+- Do not change function behaviour.
 
 ## Tests
 
-Add tests where feasible without brittle graphics comparison.
+No new tests are required unless the documentation examples require small changes.
 
-Suggested tests:
-- `show_colours()` returns the input colours invisibly.
-- unnamed colours use colour values as labels without error.
-- named colours use names by default.
-- `labels = NULL` works.
-- automatic layout produces enough cells.
-- supplied `nrow` or `ncol` is handled correctly.
-- invalid colours error clearly if possible, or at least do not leave graphics parameters unrestored.
-- graphics parameters are restored after the function exits.
-- `show_oi_colours()` returns `okabe_ito_colours(extended = TRUE)` by default.
-- `show_oi_colours(extended = FALSE)` returns the original palette.
-- `show_oi_colours(alpha = 0.5)` returns the alpha-adjusted palette.
-
-Use a temporary graphics device such as `pdf(tempfile())` for plotting tests, and ensure it is closed with `on.exit(grDevices::dev.off(), add = TRUE)`.
-
-## Internal helpers
-
-It is fine to add documented non-exported helpers such as:
-
-```r
-colour_text_contrast()
-colour_grid_dims()
-```
-
-Keep them simple and base-R only.
+If examples are changed in a way that affects checks, make sure they remain check-friendly.
 
 ## Verification
 
@@ -162,9 +164,8 @@ make check
 ```
 
 Please report:
-1. What functions were added.
-2. How grid layout is chosen.
-3. How label text colour is chosen.
+1. What documentation sections were added or revised.
+2. Whether any examples were added or protected with `\dontrun{}`.
+3. Whether any function behaviour changed.
 4. What files changed.
-5. What tests were added.
-6. What verification commands were run and their results.
+5. What verification commands were run and their results.
