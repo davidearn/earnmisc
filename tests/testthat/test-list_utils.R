@@ -93,8 +93,8 @@ test_that("input_form prints and returns a character string invisibly", {
 
 test_that("input_form width.cutoff is passed to deparse", {
   x <- as.list(stats::setNames(1:20, paste0("long_name_", 1:20)))
-  narrow <- capture.output(narrow.result <- input_form(x, width.cutoff = 20))
-  wide <- capture.output(wide.result <- input_form(x, width.cutoff = 500))
+  narrow <- capture.output(narrow.result <- input_form(x, width.cutoff = 20, align = NULL))
+  wide <- capture.output(wide.result <- input_form(x, width.cutoff = 500, align = NULL))
 
   expect_true(length(narrow) > 0)
   expect_true(length(wide) > 0)
@@ -107,6 +107,144 @@ test_that("input_form validates width.cutoff", {
   expect_error(input_form(list(a = 1), width.cutoff = 19), "`width.cutoff`")
   expect_error(input_form(list(a = 1), width.cutoff = 501), "`width.cutoff`")
   expect_error(input_form(list(a = 1), width.cutoff = 20.5), "`width.cutoff`")
+})
+
+test_that("input_form align NULL preserves ordinary deparse output", {
+  x <- list(a = 1, b = 2)
+  result <- capture.output(
+    text <- input_form(x, align = NULL, final.newline = FALSE)
+  )
+
+  expect_true(length(result) > 0)
+  expect_identical(text, paste(deparse(x, width.cutoff = 60, control = "all"), collapse = "\n"))
+})
+
+test_that("input_form default alignment formats named lists with aligned equals", {
+  x <- list(exact = 1, KM.tauinit = 2, localX.tauinit = 3)
+  result <- capture.output(
+    text <- input_form(x, final.newline = FALSE)
+  )
+  lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
+  equal.positions <- regexpr("=", lines[2:4], fixed = TRUE)
+
+  expect_true(length(result) > 0)
+  expect_identical(lines[[1]], "list(")
+  expect_true(startsWith(lines[[3]], "  , "))
+  expect_equal(length(unique(as.integer(equal.positions))), 1)
+})
+
+test_that("input_form comma alignment does not align equals signs", {
+  x <- list(short = 1, much_longer_name = 2)
+  result <- capture.output(
+    text <- input_form(x, align = ",", final.newline = FALSE)
+  )
+  lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
+  equal.positions <- regexpr("=", lines[2:3], fixed = TRUE)
+
+  expect_true(length(result) > 0)
+  expect_identical(lines[[1]], "list(")
+  expect_true(startsWith(lines[[3]], "  , "))
+  expect_true(length(unique(as.integer(equal.positions))) > 1)
+})
+
+test_that("input_form aligned output parses and reconstructs a named list", {
+  x <- list(
+    exact = list(col = "#DFEAEC", lwd = 8, lty = 1),
+    KM.tauinit = list(col = "grey10", lwd = 2, lty = 3),
+    localX.tauinit = list(col = "#0072B2", lwd = 2, lty = 3)
+  )
+  result <- capture.output(
+    text <- input_form(x, width.cutoff = 90, final.newline = FALSE)
+  )
+
+  expect_true(length(result) > 0)
+  expect_identical(eval(parse(text = text)), x)
+})
+
+test_that("input_form aligned output parses with an assignment prefix", {
+  x <- list(alpha = 1, beta = 2)
+  result <- capture.output(
+    text <- input_form(x, prefix = "x.new <- ", final.newline = FALSE)
+  )
+  env <- new.env(parent = baseenv())
+
+  expect_true(length(result) > 0)
+  expect_true(startsWith(text, "x.new <- list("))
+  eval(parse(text = text), envir = env)
+  expect_identical(env$x.new, x)
+})
+
+test_that("input_form suffix and final newline work with aligned output", {
+  x <- list(alpha = 1, beta = 2)
+  result <- capture.output(
+    text <- input_form(x, suffix = " # revised list", final.newline = FALSE)
+  )
+  with.newline <- capture.output(
+    text.with.newline <- input_form(x, suffix = " # revised list", final.newline = TRUE)
+  )
+
+  expect_true(length(result) > 0)
+  expect_true(length(with.newline) > 0)
+  expect_true(endsWith(text, ") # revised list"))
+  expect_false(endsWith(text, "\n"))
+  expect_true(endsWith(text.with.newline, "\n"))
+})
+
+test_that("input_form file writing works with aligned output", {
+  x <- list(alpha = 1, beta = 2)
+  out.file <- tempfile(fileext = ".R")
+  text <- input_form(x, file = out.file)
+
+  expect_identical(
+    readChar(out.file, nchars = file.info(out.file)$size, useBytes = TRUE),
+    text
+  )
+  expect_identical(eval(parse(file = out.file)), x)
+})
+
+test_that("input_form append and overwrite work with aligned output", {
+  x <- list(alpha = 1, beta = 2)
+  out.file <- tempfile(fileext = ".R")
+  first <- input_form(x, file = out.file)
+  second <- input_form(x, file = out.file, append = TRUE, overwrite = "error")
+
+  expect_identical(
+    readChar(out.file, nchars = file.info(out.file)$size, useBytes = TRUE),
+    paste0(first, second)
+  )
+})
+
+test_that("input_form falls back for non-list and unnamed list inputs", {
+  non.list <- 1:3
+  unnamed.list <- list(1, 2)
+  non.list.text <- capture.output(
+    non.list.result <- input_form(non.list, final.newline = FALSE)
+  )
+  unnamed.text <- capture.output(
+    unnamed.result <- input_form(unnamed.list, final.newline = FALSE)
+  )
+
+  expect_true(length(non.list.text) > 0)
+  expect_true(length(unnamed.text) > 0)
+  expect_identical(non.list.result, paste(deparse(non.list, control = "all"), collapse = "\n"))
+  expect_identical(unnamed.result, paste(deparse(unnamed.list, control = "all"), collapse = "\n"))
+})
+
+test_that("input_form handles non-syntactic list names parseably", {
+  x <- list("has space" = 1, "has-hyphen" = 2, check.names = FALSE)
+  result <- capture.output(
+    text <- input_form(x, final.newline = FALSE)
+  )
+
+  expect_true(length(result) > 0)
+  expect_true(grepl("`has space`", text, fixed = TRUE))
+  expect_identical(eval(parse(text = text)), x)
+})
+
+test_that("input_form validates align", {
+  expect_error(input_form(list(a = 1), align = "="), "`align`")
+  expect_error(input_form(list(a = 1), align = c("=", ",")), "`align`")
+  expect_error(input_form(list(a = 1), align = TRUE), "`align`")
 })
 
 test_that("input_form output can reconstruct a simple list", {

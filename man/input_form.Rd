@@ -13,7 +13,8 @@ input_form(
   prefix = "",
   suffix = "",
   final.newline = TRUE,
-  overwrite = TRUE
+  overwrite = TRUE,
+  align = c(",", "=")
 )
 }
 \arguments{
@@ -43,6 +44,13 @@ copies the existing file to a \code{.bak}, \code{.bak1}, ... backup before
 overwriting, and \code{"error"} stops. \code{FALSE} is accepted as a synonym for
 \code{"error"}. When \code{append = TRUE}, existing files are appended to and
 overwrite protection is not applied.}
+
+\item{align}{Alignment mode for suitable named lists. \code{NULL} uses ordinary
+\code{\link[=deparse]{deparse()}} output. \code{","} formats top-level named lists across multiple
+lines with leading commas. \code{c(",", "=")}, the default, also aligns equals
+signs. Alignment is conservative: non-lists, unnamed lists, lists with
+extra attributes, and lists whose top-level values do not deparse compactly
+fall back to ordinary \code{\link[=deparse]{deparse()}} output.}
 }
 \value{
 A character scalar containing exactly the generated text, including
@@ -62,6 +70,10 @@ semantics.
 \examples{
 txt <- input_form(list(a = 1, b = "two"), final.newline = FALSE)
 input_form(list(a = 1, b = "two"), prefix = "new.list <- ")
+input_form(list(alpha = 1, beta = 2))
+input_form(list(alpha = 1, beta = 2), align = NULL)
+input_form(list(alpha = 1, beta = 2), align = ",")
+input_form(list(alpha = 1, beta = 2), prefix = "x.new <- ")
 
 out.file <- tempfile(fileext = ".R")
 input_form(list(a = 1), file = out.file)

@@ -96,6 +96,12 @@ update_list <- function(x, ..., .create = FALSE) {
 #'   overwriting, and `"error"` stops. `FALSE` is accepted as a synonym for
 #'   `"error"`. When `append = TRUE`, existing files are appended to and
 #'   overwrite protection is not applied.
+#' @param align Alignment mode for suitable named lists. `NULL` uses ordinary
+#'   [deparse()] output. `","` formats top-level named lists across multiple
+#'   lines with leading commas. `c(",", "=")`, the default, also aligns equals
+#'   signs. Alignment is conservative: non-lists, unnamed lists, lists with
+#'   extra attributes, and lists whose top-level values do not deparse compactly
+#'   fall back to ordinary [deparse()] output.
 #'
 #' @return A character scalar containing exactly the generated text, including
 #'   the final newline when `final.newline = TRUE`. The value is returned
@@ -104,6 +110,10 @@ update_list <- function(x, ..., .create = FALSE) {
 #' @examples
 #' txt <- input_form(list(a = 1, b = "two"), final.newline = FALSE)
 #' input_form(list(a = 1, b = "two"), prefix = "new.list <- ")
+#' input_form(list(alpha = 1, beta = 2))
+#' input_form(list(alpha = 1, beta = 2), align = NULL)
+#' input_form(list(alpha = 1, beta = 2), align = ",")
+#' input_form(list(alpha = 1, beta = 2), prefix = "x.new <- ")
 #'
 #' out.file <- tempfile(fileext = ".R")
 #' input_form(list(a = 1), file = out.file)
@@ -125,20 +135,23 @@ input_form <- function(x,
                        prefix = "",
                        suffix = "",
                        final.newline = TRUE,
-                       overwrite = TRUE) {
+                       overwrite = TRUE,
+                       align = c(",", "=")) {
   append <- validate_list_logical_scalar(append, "append")
   final.newline <- validate_list_logical_scalar(final.newline, "final.newline")
   width.cutoff <- validate_width_cutoff(width.cutoff)
   prefix <- validate_character_scalar(prefix, "prefix")
   suffix <- validate_character_scalar(suffix, "suffix")
   overwrite <- normalise_overwrite(overwrite)
+  align <- validate_align(align)
 
-  output.lines <- deparse(
+  object.text <- input_form_deparse(
     x,
     width.cutoff = width.cutoff,
-    control = control
+    control = control,
+    align = align
   )
-  output.text <- paste0(prefix, paste(output.lines, collapse = "\n"), suffix)
+  output.text <- paste0(prefix, object.text, suffix)
 
   if (final.newline) {
     output.text <- paste0(output.text, "\n")
@@ -156,6 +169,149 @@ input_form <- function(x,
     overwrite = overwrite
   )
   invisible(output.text)
+}
+
+#' Deparse an object for input form
+#'
+#' Deparse an object using ordinary [deparse()] output or conservative aligned
+#' formatting for suitable named lists.
+#'
+#' @param x Object to deparse.
+#' @param width.cutoff Width cutoff passed to [deparse()].
+#' @param control Control argument passed to [deparse()].
+#' @param align Normalised alignment mode from [validate_align()].
+#'
+#' @return A character scalar without a final newline.
+input_form_deparse <- function(x, width.cutoff, control, align) {
+  if (is.null(align)) {
+    return(paste(input_form_deparse_lines(x, width.cutoff, control), collapse = "\n"))
+  }
+
+  aligned.text <- input_form_align_list(
+    x,
+    width.cutoff = width.cutoff,
+    control = control,
+    align = align
+  )
+
+  if (!is.null(aligned.text)) {
+    return(aligned.text)
+  }
+
+  paste(input_form_deparse_lines(x, width.cutoff, control), collapse = "\n")
+}
+
+#' Deparse an object to lines
+#'
+#' Thin wrapper around [deparse()] for consistent internal use.
+#'
+#' @param x Object to deparse.
+#' @param width.cutoff Width cutoff passed to [deparse()].
+#' @param control Control argument passed to [deparse()].
+#'
+#' @return A character vector of deparsed lines.
+input_form_deparse_lines <- function(x, width.cutoff, control) {
+  deparse(x, width.cutoff = width.cutoff, control = control)
+}
+
+#' Align a top-level named list
+#'
+#' Format a plain top-level named list using leading commas and optionally
+#' aligned equals signs. Returns `NULL` when conservative formatting should not
+#' be applied.
+#'
+#' @param x Object to format.
+#' @param width.cutoff Width cutoff passed to [deparse()].
+#' @param control Control argument passed to [deparse()].
+#' @param align Normalised non-`NULL` alignment mode.
+#'
+#' @return A character scalar, or `NULL` when alignment is not applicable.
+input_form_align_list <- function(x, width.cutoff, control, align) {
+  if (!is.list(x)) {
+    return(NULL)
+  }
+  if (!identical(names(attributes(x)), "names")) {
+    return(NULL)
+  }
+
+  list.names <- names(x)
+
+  if (is.null(list.names) || anyNA(list.names) || any(!nzchar(list.names))) {
+    return(NULL)
+  }
+
+  value.text <- vapply(
+    x,
+    deparse_one_line,
+    character(1),
+    width.cutoff = width.cutoff,
+    control = control,
+    USE.NAMES = FALSE
+  )
+
+  if (anyNA(value.text)) {
+    return(NULL)
+  }
+
+  formatted.names <- vapply(list.names, format_list_name, character(1))
+
+  if (identical(align, c(",", "="))) {
+    name.width <- max(nchar(formatted.names, type = "width"))
+    formatted.names <- format(formatted.names, width = name.width, justify = "left")
+  }
+
+  lines <- character(length(x) + 2L)
+  lines[[1]] <- "list("
+
+  for (element.number in seq_along(x)) {
+    line.prefix <- if (element.number == 1L) "    " else "  , "
+    lines[[element.number + 1L]] <- paste0(
+      line.prefix,
+      formatted.names[[element.number]],
+      " = ",
+      value.text[[element.number]]
+    )
+  }
+
+  lines[[length(lines)]] <- ")"
+  paste(lines, collapse = "\n")
+}
+
+#' Format a list element name
+#'
+#' Return parseable source text for a list element name, preserving syntactic
+#' names without quotes and backticking non-syntactic names.
+#'
+#' @param name List element name.
+#'
+#' @return A character scalar.
+format_list_name <- function(name) {
+  paste(deparse(as.name(name), backtick = TRUE), collapse = "")
+}
+
+#' Deparse an object on one line
+#'
+#' Deparse a value and return it only when it fits on a single line. This keeps
+#' aligned list formatting conservative and parseable.
+#'
+#' @param x Object to deparse.
+#' @param width.cutoff Width cutoff passed to [deparse()].
+#' @param control Control argument passed to [deparse()].
+#'
+#' @return A character scalar, or `NA_character_` when deparse output spans
+#'   multiple lines.
+deparse_one_line <- function(x, width.cutoff, control) {
+  output.lines <- input_form_deparse_lines(
+    x,
+    width.cutoff = width.cutoff,
+    control = control
+  )
+
+  if (length(output.lines) != 1L) {
+    return(NA_character_)
+  }
+
+  output.lines
 }
 
 #' Parse a list update path
@@ -295,6 +451,29 @@ normalise_overwrite <- function(overwrite) {
     "`overwrite` must be TRUE, FALSE, \"warn\", \"recover\", or \"error\".",
     call. = FALSE
   )
+}
+
+#' Validate input-form alignment mode
+#'
+#' Validate and normalise the `align` argument for [input_form()].
+#'
+#' @param align User-supplied alignment mode.
+#'
+#' @return `NULL`, `","`, or `c(",", "=")`.
+validate_align <- function(align) {
+  if (is.null(align)) {
+    return(NULL)
+  }
+
+  if (is.character(align) && identical(align, ",")) {
+    return(",")
+  }
+
+  if (is.character(align) && identical(align, c(",", "="))) {
+    return(c(",", "="))
+  }
+
+  stop("`align` must be NULL, \",\", or c(\",\", \"=\").", call. = FALSE)
 }
 
 #' Find a backup path

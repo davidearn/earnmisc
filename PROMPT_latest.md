@@ -1,9 +1,9 @@
 # Latest Codex Prompt
 
-- Entry ID: `20260513T135047Z`
-- Recorded: `2026-05-13T13:50:47+00:00`
+- Entry ID: `20260513T143348Z`
+- Recorded: `2026-05-13T14:33:48+00:00`
 
-Please revise `earnmisc::input_form()`.
+Please revise `earnmisc::input_form()` to support aligned list formatting.
 
 Read `AGENTS.md` first and follow it closely.
 
@@ -11,27 +11,43 @@ Do not modify `tools/`.
 Do not run `make prompt`, `make response`, or `make record.commit`.
 Do not create Git commits.
 
-## Current implementation
+## Goal
 
-`input_form()` currently uses:
+Add an `align` argument to `input_form()` so that list input forms can be easier to read and edit.
+
+Current example:
 
 ```r
-output.lines <- utils::capture.output(
-  dput(x, control = control)
+input_form(
+  out.fig$overlay.curve.styles,
+  width = 90,
+  prefix = "my.overlay.curve.style <- ",
+  file = "myoverlay.R"
 )
-output.text <- paste(output.lines, collapse = "\n")
 ```
 
-It validates `width.cutoff`, but `width.cutoff` is otherwise ignored because current R’s `dput()` does not expose a `width.cutoff` argument.
-
-## Requested changes
-
-Please revise `input_form()` to make `width.cutoff` meaningful and to add more control over file output and generated text.
-
-Suggested revised API:
+currently produces something like:
 
 ```r
-input_form <- function(
+my.overlay.curve.style <- list(exact = list(col = "#DFEAEC", lwd = 8, lty = 1), KM.tauinit = list(col = "grey10", lwd = 2, 
+    lty = 3), localX.tauinit = list(col = "#0072B2", lwd = 2, lty = 3), original.y = list(col = "#1C6F75", 
+    lwd = 2, lty = 1))
+```
+
+I would like an `align` argument that can produce more readable multiline output.
+
+## Revised API
+
+Please revise the API to include:
+
+```r
+align = c(",", "=")
+```
+
+The full API should become:
+
+```r
+input_form(
   x,
   file = "",
   append = FALSE,
@@ -40,209 +56,239 @@ input_form <- function(
   prefix = "",
   suffix = "",
   final.newline = TRUE,
-  overwrite = TRUE
+  overwrite = TRUE,
+  align = c(",", "=")
 )
 ```
 
-Use this exact API unless there is a strong reason to adjust it.
+Use this exact API unless there is a strong technical reason not to.
 
-## `width.cutoff`
+## `align` behaviour
 
-`width.cutoff` should control the deparse width as much as base R allows.
+### `align = NULL`
 
-Rather than using `capture.output(dput(...))`, use `deparse()` directly, for example:
+When `align = NULL`, preserve the current behaviour exactly.
+
+For example, this should continue to use ordinary `deparse()` output:
 
 ```r
-output.lines <- deparse(
-  x,
-  width.cutoff = width.cutoff,
-  control = control
+input_form(x, align = NULL)
+```
+
+### `align = ","`
+
+When `align = ","`, format suitable named lists in a multiline style with leading commas aligned.
+
+For example:
+
+```r
+input_form(
+  out.fig$overlay.curve.styles,
+  width = 90,
+  prefix = "my.overlay.curve.style <- ",
+  align = ","
 )
 ```
 
-Then collapse lines manually.
-
-Please update the documentation to explain that `width.cutoff` is passed to `deparse()` and controls the approximate line width used during deparsing; it is not a strict maximum line length.
-
-Keep validation sensible. Base R `deparse()` requires `width.cutoff` to be an integer-ish value between 20 and 500. Please validate accordingly.
-
-## `append`
-
-Add an `append` argument modelled on `cat()`/`write()` conventions.
-
-Behaviour:
-- If `file = ""`, `append` should have no practical effect.
-- If `file` is a filename and `append = FALSE`, write a fresh file subject to `overwrite`.
-- If `file` is a filename and `append = TRUE`, append to the existing file if it exists, or create it if it does not.
-
-Use `cat()` or `writeLines()` in a way that handles `append` cleanly.
-
-## `overwrite`
-
-Add an `overwrite` argument controlling what happens when `file` already exists and `append = FALSE`.
-
-Allowed values:
+should produce output like:
 
 ```r
-TRUE
-"warn"
-"recover"
-"error"
+my.overlay.curve.style <- list(
+    exact = list(col = "#DFEAEC", lwd = 8, lty = 1)
+  , KM.tauinit = list(col = "grey10", lwd = 2, lty = 3)
+  , localX.tauinit = list(col = "#0072B2", lwd = 2, lty = 3)
+  , original.y = list(col = "#1C6F75", lwd = 2, lty = 1)
+)
 ```
 
-Behaviour:
-- `overwrite = TRUE`: overwrite silently, matching current behaviour.
-- `overwrite = "warn"`: warn that the existing file is being overwritten, then overwrite.
-- `overwrite = "recover"`: before overwriting, copy the existing file to a recoverable backup path, warn with the backup filename, then overwrite.
-- `overwrite = "error"`: stop with an informative error and do not overwrite.
+### `align = c(",", "=")`
 
-Please also accept `overwrite = FALSE` as a synonym for `"error"` if that seems natural.
+When `align = c(",", "=")`, format suitable named lists in a multiline style with leading commas and aligned equals signs.
 
-For `overwrite = "recover"`, choose a simple backup filename that avoids clobbering existing backups, for example:
+This should be the default.
 
-```text
-blah.R.bak
-blah.R.bak1
-blah.R.bak2
-```
-
-or a timestamped backup such as:
-
-```text
-blah.R.20260513-143012.bak
-```
-
-Use a simple, documented design.
-
-If `append = TRUE`, do not treat an existing file as an overwrite; append to it. In that case, `overwrite` should be ignored or only validated. Please document this.
-
-## `prefix` and `suffix`
-
-Add `prefix` and `suffix` arguments.
-
-These should be character scalars.
-
-The final generated text should be:
+For example:
 
 ```r
-paste0(prefix, deparsed.object, suffix)
+input_form(
+  out.fig$overlay.curve.styles,
+  width = 90,
+  prefix = "my.overlay.curve.style <- ",
+  align = c(",", "=")
+)
 ```
 
-or the multiline equivalent.
+should produce output like:
+
+```r
+my.overlay.curve.style <- list(
+    exact          = list(col = "#DFEAEC", lwd = 8, lty = 1)
+  , KM.tauinit     = list(col = "grey10", lwd = 2, lty = 3)
+  , localX.tauinit = list(col = "#0072B2", lwd = 2, lty = 3)
+  , original.y     = list(col = "#1C6F75", lwd = 2, lty = 1)
+)
+```
+
+## Scope and fallback behaviour
+
+Keep this conservative.
+
+This is not intended to be a full R-code formatter.
+
+The aligned formatting should target suitable named list objects, especially lists whose top-level elements can each be deparsed compactly.
+
+If the object is not a list, or if alignment cannot be applied safely, fall back to the ordinary `deparse()` output used when `align = NULL`.
+
+For now, it is acceptable for alignment to apply only to top-level named lists.
+
+Do not try to fully reformat arbitrary nested R code.
+
+Nested list values may be deparsed compactly on the same line where possible, using `width.cutoff`.
+
+## Prefix and suffix interaction
+
+`prefix` should still appear before the full generated input form.
+
+For aligned list output, this means:
+
+```r
+prefix = "my.overlay.curve.style <- "
+```
+
+should produce:
+
+```r
+my.overlay.curve.style <- list(
+    exact          = list(col = "#DFEAEC", lwd = 8, lty = 1)
+  , KM.tauinit     = list(col = "grey10", lwd = 2, lty = 3)
+)
+```
+
+not:
+
+```r
+my.overlay.curve.style <- 
+list(...)
+```
+
+`suffix` should still be appended after the final generated object form, as currently documented.
+
+For example:
+
+```r
+input_form(x, prefix = "x <- ", suffix = " # revised list")
+```
+
+should place the suffix after the closing parenthesis or final deparsed line.
+
+## Names and quoting
+
+Please preserve syntactically valid names without quotes, matching ordinary `deparse()` where possible.
+
+If a list name is not syntactically valid, quote it in a way that produces parseable R code.
 
 Examples:
+- `exact` should appear as `exact`.
+- `KM.tauinit` should appear as `KM.tauinit`.
+- names containing spaces or other non-syntactic characters should be backticked or otherwise represented parseably.
+
+Use base R utilities where possible, such as `make.names()` checks or `deparse()` of a named one-element list, to avoid hand-rolling too much syntax.
+
+## Parseability
+
+Aligned output should be valid R code.
+
+For suitable list objects, this should hold:
 
 ```r
-input_form(my.list, prefix = "new.list <- ")
-input_form(my.list, prefix = "new.list <- ", suffix = " # revised list")
+txt <- input_form(x, align = c(",", "="))
+y <- eval(parse(text = txt))
+identical(x, y)
 ```
 
-For multiline deparse output, `prefix` should appear before the first line and `suffix` after the final line. For example, this is acceptable:
+For assignment prefixes:
 
 ```r
-new.list <- list(
-  a = 1,
-  b = 2
-) # revised list
+txt <- input_form(x, prefix = "x.new <- ", align = c(",", "="))
+env <- new.env(parent = emptyenv())
+eval(parse(text = txt), envir = env)
+identical(env$x.new, x)
 ```
 
-Please add tests for prefix and suffix.
+Please add tests for this.
 
-## Final newline
+## Validation
 
-Currently console/file output includes a final newline. This is a good default, but it should be controllable.
+Validate `align`.
 
-Add:
+Allowed values should be:
 
 ```r
-final.newline = TRUE
+NULL
+","
+c(",", "=")
 ```
 
-Behaviour:
-- If `final.newline = TRUE`, console and file output should end with a newline.
-- If `final.newline = FALSE`, console and file output should not add a final newline.
-- The returned character scalar should match exactly what was written/printed, including the final newline if `final.newline = TRUE`.
+It is fine to also accept `align = "="` as a synonym for `align = c(",", "=")` only if you think that is useful, but do not leave this decision ambiguous. My preference is to support only the three allowed values above for now.
 
-This is a change from the current implementation if the current returned string excludes the final newline. Please document the exact return value clearly.
-
-## Return value
-
-Return a character scalar containing exactly the generated text.
-
-If the text is printed to the console or written to a file, return it invisibly.
-
-Current behaviour already returns invisibly when printing or writing; please preserve that convention.
+Invalid values should error clearly.
 
 ## Documentation
 
 Update roxygen2 documentation for `input_form()`.
 
-Please document:
-- that it is based on `deparse()` rather than a full serializer;
-- how `width.cutoff` works and that it is not a strict line-length guarantee;
-- `append`;
-- `overwrite`;
-- backup behaviour for `overwrite = "recover"`;
-- `prefix` and `suffix`;
-- `final.newline`;
-- limitations for environments, external pointers, reference objects, and other objects that cannot be reconstructed reliably from deparsed code.
+Document:
+- `align = NULL` preserves ordinary deparse output;
+- `align = ","` aligns leading commas for suitable named lists;
+- `align = c(",", "=")` also aligns equals signs and is the default;
+- alignment is intentionally conservative and applies mainly to top-level named lists;
+- output falls back to ordinary deparse formatting when alignment is not applicable;
+- aligned output is intended to remain parseable R input.
 
 Use Canadian spelling.
 
 Examples should be lightweight and check-friendly.
 
-Add examples for:
-- assignment prefix;
-- file append;
-- `overwrite = "error"` or `"warn"` if easy to show safely with `tempfile()`;
-- `final.newline = FALSE`.
+Please include examples of:
+- default aligned output;
+- `align = NULL`;
+- `align = ","`;
+- assignment prefix with aligned output.
 
 ## Tests
 
 Add or revise tests for:
 
-### Width cutoff
-- `width.cutoff` is passed to `deparse()` and changes output for a suitable object.
-- invalid `width.cutoff` values error clearly.
-- Documentation/test comments should not imply strict maximum line length.
-
-### Append
-- `append = FALSE` writes a new file.
-- `append = TRUE` appends to an existing file.
-- `append = TRUE` creates a file if it does not already exist.
-
-### Overwrite
-- existing file + `overwrite = TRUE` overwrites silently.
-- existing file + `overwrite = "warn"` warns and overwrites.
-- existing file + `overwrite = "error"` errors and does not overwrite.
-- existing file + `overwrite = FALSE` behaves like `"error"` if you choose to support that.
-- existing file + `overwrite = "recover"` creates a backup and overwrites.
-- `append = TRUE` does not trigger overwrite protection.
-
-### Prefix/suffix
-- prefix is prepended to the generated object form.
-- suffix is appended to the generated object form.
-- prefixed assignment text can be parsed and evaluated when appropriate.
-
-### Final newline
-- `final.newline = TRUE` includes a trailing newline in the returned string and output.
-- `final.newline = FALSE` does not include a trailing newline.
-
-### Reconstruction
-- simple lists can still be parsed/evaluated to reconstruct the original object.
-- simple attributes are still preserved with `control = "all"` where base R supports this.
+- `align = NULL` preserves current deparse-based behaviour.
+- default `align = c(",", "=")` gives multiline aligned output for a named list.
+- `align = ","` gives leading-comma multiline output without equals alignment.
+- `align = c(",", "=")` aligns equals signs.
+- aligned output parses and reconstructs a simple named list.
+- aligned output with `prefix = "x.new <- "` parses and assigns correctly.
+- suffix works with aligned output.
+- final newline behaviour still works with aligned output.
+- file writing still works with aligned output.
+- append/overwrite behaviour still works with aligned output.
+- non-list objects fall back to ordinary deparse output.
+- unnamed lists either fall back to ordinary deparse output or are handled parseably; choose the simpler behaviour and document it clearly.
+- non-syntactic names are handled parseably.
+- invalid `align` values error clearly.
 
 ## Internal helpers
 
-It is fine to add non-exported helpers, for example:
+It is fine to add non-exported helpers such as:
 
 ```r
-normalise_overwrite()
-backup_file_path()
-write_input_form()
+validate_align()
+input_form_deparse()
+input_form_align_list()
+format_list_name()
+deparse_one_line()
 ```
 
 Document non-exported helpers with roxygen2 comments, following `AGENTS.md`.
+
+Keep the implementation base-R only.
 
 ## Verification
 
@@ -255,11 +301,10 @@ make check
 ```
 
 Please report:
-1. How `width.cutoff` is now implemented.
-2. What the final `input_form()` API is.
-3. How append and overwrite behaviour work.
-4. How backup/recover behaviour works.
-5. How prefix, suffix, and final newline are handled.
-6. What files changed.
-7. What tests were added or revised.
-8. What verification commands were run and their results.
+1. The final `align` API and defaults.
+2. How aligned formatting is implemented.
+3. What objects fall back to ordinary deparse output.
+4. How parseability is tested.
+5. What files changed.
+6. What tests were added or revised.
+7. What verification commands were run and their results.
