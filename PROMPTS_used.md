@@ -3345,5 +3345,7 @@ Unrelated existing files remain untouched: `PROMPT_latest.md`, `PROMPTS_used.md`
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260513T143348Z -->
-_Pending._
+- Recorded: `2026-05-13T14:46:46+00:00`
+- Hash: `67fbc3212f788084f2b4af06850b5c815912119b`
+- Subject: Add aligned list formatting to input_form
 <!-- codex-workflow-commit-end: 20260513T143348Z -->
