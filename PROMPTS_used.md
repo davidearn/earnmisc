@@ -3781,5 +3781,7 @@ Verification:
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260513T201910Z -->
-_Pending._
+- Recorded: `2026-05-13T20:21:09+00:00`
+- Hash: `82bb27e1f28cc1288e10e7d1155df667932a17be`
+- Subject: Expand colour helper documentation
 <!-- codex-workflow-commit-end: 20260513T201910Z -->
