@@ -2,6 +2,7 @@
 
 export(dev_is_pdf)
 export(dev_is_tikz)
+export(input_form)
 export(named_par_list)
 export(named_par_mar)
 export(named_par_usr)
@@ -28,4 +29,5 @@ export(plot_metadata)
 export(tikz_compile)
 export(tikz_info)
 export(tikz_open)
+export(update_list)
 export(xys_line)
