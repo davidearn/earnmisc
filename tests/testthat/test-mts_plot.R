@@ -154,6 +154,58 @@ test_that("plot_mts_overlay handles one or more overlays", {
   expect_identical(many$curves$source, c("base", "base", "first", "first", "second", "second"))
 })
 
+test_that("plot_mts_overlay lets plot.args override base defaults", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  y <- stats::ts(cbind(a = 2:11, b = 10:19))
+
+  colour.override <- oi.blue
+  lty.override <- 3
+  lwd.override <- 4
+  plot.info <- plot_mts_overlay(
+    x,
+    y,
+    col.x = "black",
+    lty.x = 1,
+    lwd.x = 1,
+    plot.args = list(col = colour.override, lty = lty.override, lwd = lwd.override)
+  )
+  base.rows <- plot.info$curves[plot.info$curves$source == "base", ]
+
+  expect_identical(base.rows$col, rep(colour.override, 2))
+  expect_identical(base.rows$lty, rep(as.character(lty.override), 2))
+  expect_identical(base.rows$lwd, rep(lwd.override, 2))
+})
+
+test_that("plot_mts_overlay lets lines.args override overlay defaults", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  y <- stats::ts(cbind(a = 2:11, b = 10:19))
+
+  colour.override <- oi.orange
+  lty.override <- 1
+  lwd.override <- 5
+  plot.info <- plot_mts_overlay(
+    x,
+    y,
+    col.y = "red",
+    lty.y = 4,
+    lwd.y = 1,
+    lines.args = list(col = colour.override, lty = lty.override, lwd = lwd.override)
+  )
+  overlay.rows <- plot.info$curves[plot.info$curves$source == "overlay1", ]
+
+  expect_identical(overlay.rows$col, rep(colour.override, 2))
+  expect_identical(overlay.rows$lty, rep(as.character(lty.override), 2))
+  expect_identical(overlay.rows$lwd, rep(lwd.override, 2))
+})
+
 test_that("plot_mts_overlay validates arguments", {
   x <- stats::ts(cbind(a = 1:10, b = 11:20))
   y <- stats::ts(cbind(a = 2:11, b = 10:19))
@@ -162,6 +214,23 @@ test_that("plot_mts_overlay validates arguments", {
   expect_error(plot_mts_overlay(x, y, y, overlay.names = "one-too-short"), "`overlay.names`")
   expect_error(plot_mts_overlay(x, y, plot.args = 1), "`plot.args`")
   expect_error(plot_mts_overlay(x, y, lines.args = 1), "`lines.args`")
+  expect_error(plot_mts_overlay(x, y, plot.args = list(x = x)), "protected argument")
+  expect_error(plot_mts_overlay(x, y, plot.args = list(columns = "a")), "protected argument")
+})
+
+test_that("plot_mts_overlay validates protected lines.args", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  y <- stats::ts(cbind(a = 2:11, b = 10:19))
+
+  expect_error(plot_mts_overlay(x, y, lines.args = list(y = y)), "protected argument")
+  expect_error(plot_mts_overlay(x, y, lines.args = list(plot.info = list())), "protected argument")
+  expect_error(plot_mts_overlay(x, y, lines.args = list(columns = "a")), "protected argument")
+  expect_error(plot_mts_overlay(x, y, lines.args = list(source = "manual")), "protected argument")
+  expect_error(plot_mts_overlay(x, y, lines.args = list(object.index = 99L)), "protected argument")
 })
 
 test_that("plot_mts and lines_mts validate inputs", {

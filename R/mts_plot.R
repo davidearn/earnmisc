@@ -303,8 +303,13 @@ lines_mts <- function(
 #'   defaults are used. If a list, each element is used for the corresponding
 #'   overlay object; otherwise the value is reused for each overlay object.
 #' @param overlay.names Optional source labels for overlay objects.
-#' @param plot.args Additional arguments passed to [plot_mts()].
-#' @param lines.args Additional arguments passed to [lines_mts()].
+#' @param plot.args Additional arguments passed to [plot_mts()]. Same-named
+#'   values override base plotting defaults such as `col.x`, `lty.x`, and
+#'   `lwd.x`. Core arguments `x` and `columns` cannot be supplied here.
+#' @param lines.args Additional arguments passed to [lines_mts()]. Same-named
+#'   values override overlay defaults such as `col.y`, `lty.y`, and `lwd.y`.
+#'   Core arguments `y`, `plot.info`, `columns`, `source`, and `object.index`
+#'   cannot be supplied here.
 #'
 #' @return Invisibly returns the final updated plot-info object.
 #'
@@ -356,39 +361,39 @@ plot_mts_overlay <- function(
     overlay.names <- paste0("overlay", seq_along(overlays))
   }
 
-  plot.info <- do.call(
-    plot_mts,
-    c(
-      list(
-        x = x,
-        columns = columns.x,
-        col = col.x,
-        lty = lty.x,
-        lwd = lwd.x
-      ),
-      plot.args
-    )
+  plot.call.args <- merge_call_args(
+    defaults = list(
+      x = x,
+      columns = columns.x,
+      col = col.x,
+      lty = lty.x,
+      lwd = lwd.x
+    ),
+    overrides = plot.args,
+    protected = c("x", "columns"),
+    argument.name = "plot.args"
   )
+  plot.info <- do.call(plot_mts, plot.call.args)
 
   for (overlay.index in seq_along(overlays)) {
-    plot.info <- do.call(
-      lines_mts,
-      c(
-        list(
-          y = overlays[[overlay.index]],
-          plot.info = plot.info,
-          columns = columns.y,
-          match = match,
-          unmatched = unmatched,
-          col = overlay_graphic_parameter(col.y, overlay.index, default = default_mts_overlay_colour(overlay.index)),
-          lty = overlay_graphic_parameter(lty.y, overlay.index, default = overlay.index),
-          lwd = overlay_graphic_parameter(lwd.y, overlay.index, default = 1),
-          source = overlay.names[[overlay.index]],
-          object.index = overlay.index
-        ),
-        lines.args
-      )
+    lines.call.args <- merge_call_args(
+      defaults = list(
+        y = overlays[[overlay.index]],
+        plot.info = plot.info,
+        columns = columns.y,
+        match = match,
+        unmatched = unmatched,
+        col = overlay_graphic_parameter(col.y, overlay.index, default = default_mts_overlay_colour(overlay.index)),
+        lty = overlay_graphic_parameter(lty.y, overlay.index, default = overlay.index),
+        lwd = overlay_graphic_parameter(lwd.y, overlay.index, default = 1),
+        source = overlay.names[[overlay.index]],
+        object.index = overlay.index
+      ),
+      overrides = lines.args,
+      protected = c("y", "plot.info", "columns", "source", "object.index"),
+      argument.name = "lines.args"
     )
+    plot.info <- do.call(lines_mts, lines.call.args)
   }
 
   invisible(plot.info)
@@ -698,4 +703,61 @@ overlay_graphic_parameter <- function(x, index, default) {
 default_mts_overlay_colour <- function(index) {
   colours <- c("red", "blue", "darkgreen", "purple", "orange", "brown", "magenta", "cyan4")
   colours[((index - 1L) %% length(colours)) + 1L]
+}
+
+#' Merge constructed call arguments with user overrides
+#'
+#' Replace same-named defaults with user-supplied overrides and append new
+#' arguments. Protected names error because they are controlled internally.
+#'
+#' @param defaults Named list of arguments constructed by a wrapper.
+#' @param overrides List of user-supplied arguments.
+#' @param protected Character vector of names that cannot be overridden.
+#' @param argument.name Name of `overrides` for error messages.
+#'
+#' @return A list of merged call arguments.
+#' @noRd
+merge_call_args <- function(defaults,
+                            overrides,
+                            protected = character(),
+                            argument.name = "overrides") {
+  if (!is.list(defaults)) {
+    stop("`defaults` must be a list.", call. = FALSE)
+  }
+  if (!is.list(overrides)) {
+    stop("`", argument.name, "` must be a list.", call. = FALSE)
+  }
+
+  override.names <- names(overrides)
+  if (is.null(override.names)) {
+    override.names <- rep("", length(overrides))
+  }
+  named.overrides <- nzchar(override.names)
+  protected.matches <- override.names[named.overrides & override.names %in% protected]
+
+  if (length(protected.matches) > 0L) {
+    stop(
+      "`",
+      argument.name,
+      "` cannot override protected argument",
+      if (length(protected.matches) == 1L) "" else "s",
+      ": ",
+      paste(unique(protected.matches), collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  out <- defaults
+  for (arg.index in seq_along(overrides)) {
+    arg.name <- override.names[[arg.index]]
+    if (nzchar(arg.name) && arg.name %in% names(out)) {
+      out[[arg.name]] <- overrides[[arg.index]]
+    } else {
+      next.arg <- overrides[arg.index]
+      names(next.arg) <- arg.name
+      out <- c(out, next.arg)
+    }
+  }
+
+  out
 }

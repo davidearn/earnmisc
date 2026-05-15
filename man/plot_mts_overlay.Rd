@@ -42,9 +42,14 @@ overlay object; otherwise the value is reused for each overlay object.}
 
 \item{overlay.names}{Optional source labels for overlay objects.}
 
-\item{plot.args}{Additional arguments passed to \code{\link[=plot_mts]{plot_mts()}}.}
+\item{plot.args}{Additional arguments passed to \code{\link[=plot_mts]{plot_mts()}}. Same-named
+values override base plotting defaults such as \code{col.x}, \code{lty.x}, and
+\code{lwd.x}. Core arguments \code{x} and \code{columns} cannot be supplied here.}
 
-\item{lines.args}{Additional arguments passed to \code{\link[=lines_mts]{lines_mts()}}.}
+\item{lines.args}{Additional arguments passed to \code{\link[=lines_mts]{lines_mts()}}. Same-named
+values override overlay defaults such as \code{col.y}, \code{lty.y}, and \code{lwd.y}.
+Core arguments \code{y}, \code{plot.info}, \code{columns}, \code{source}, and \code{object.index}
+cannot be supplied here.}
 }
 \value{
 Invisibly returns the final updated plot-info object.
