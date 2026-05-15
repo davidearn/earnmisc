@@ -15,6 +15,7 @@ The main utility families are:
 \item Okabe-Ito colour palette helpers.
 \item Colour swatch display helpers.
 \item Small base graphics helpers, including vectorised \code{xys_line()}.
+\item Multivariate time-series plotting helpers.
 \item Base graphics plot metadata helpers.
 \item List and object representation helpers.
 \item Lightweight TeX label helpers, including \code{nice_text()}.

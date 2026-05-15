@@ -1,28 +1,47 @@
 # Latest Codex Response Summary
 
-- Entry ID: `20260513T201910Z`
-- Recorded: `2026-05-13T20:20:36+00:00`
+- Entry ID: `20260515T123640Z`
+- Recorded: `2026-05-15T12:43:51+00:00`
 
-Updated the roxygen documentation for `show_colours()` and `show_oi_colours()` only. Function behaviour did not change.
+Implemented the generic `mts` overlay workflow.
 
-Added/revised documentation:
-- Added a `Palette design workflow` section to both help pages.
-- Added optional resources: `colorspace`, `khroma`, `paletteer`, Adobe Color, and Coolors, with links.
-- Added a practical workflow from rough palette ideas to R inspection.
-- Added built-in R colour examples using `colours()`.
-- Mentioned that base R has 657 built-in named colours and that `colors()` is an alias.
+**Added functions**
+- `plot_mts()`
+- `lines_mts()`
+- `plot_mts_overlay()`
 
-Examples:
-- Added check-friendly `show_colours(colours()[1:16])`.
-- Added the full built-in-colour browsing loop protected with `\dontrun{}`:
-  `for (i in 1:41) show_colours(...)`.
+These are exported in `NAMESPACE`.
 
-Files changed:
-- [R/show_colours.R](/Users/earn/r/earnmisc/R/show_colours.R)
-- [man/show_colours.Rd](/Users/earn/r/earnmisc/man/show_colours.Rd)
-- [man/show_oi_colours.Rd](/Users/earn/r/earnmisc/man/show_oi_colours.Rd)
+**Design**
+- `lines_mts()` is intentionally tied to layouts created by `plot_mts()`.
+- Arbitrary existing `plot.mts()` output is not supported because base R does not expose a stable panel map or reliable way to re-enter prior panels.
+- `plot_mts()` stores panel metadata including `usr`, `mfg`, layout, selected columns, time index, device, and a `curves` registry.
+- `lines_mts()` uses explicit `plot.info` or the most recent stored `plot_mts()` result.
+- Matching defaults to column names, falls back to position with a warning when names are unavailable, and supports `unmatched = "warn"`, `"error"`, or `"ignore"`.
+- Graphical parameters can be scalar, vectorised, or named by column.
 
-Verification:
-- `make document`: passed.
-- `make test`: passed.
-- `make check`: passed with `Status: OK`.
+**Curve Registry**
+`plot.info$curves` records base and overlay curves with:
+`source`, `object.index`, `column`, `name`, `panel.index`, `panel.name`, `col`, `lty`, `lwd`, `type`, `drawn`, and `reason`.
+
+**Files changed**
+- [R/mts_plot.R](/Users/earn/r/earnmisc/R/mts_plot.R)
+- [R/earnmisc-package.R](/Users/earn/r/earnmisc/R/earnmisc-package.R)
+- [NAMESPACE](/Users/earn/r/earnmisc/NAMESPACE)
+- [man/plot_mts.Rd](/Users/earn/r/earnmisc/man/plot_mts.Rd)
+- [man/lines_mts.Rd](/Users/earn/r/earnmisc/man/lines_mts.Rd)
+- [man/plot_mts_overlay.Rd](/Users/earn/r/earnmisc/man/plot_mts_overlay.Rd)
+- [man/earnmisc-package.Rd](/Users/earn/r/earnmisc/man/earnmisc-package.Rd)
+- [tests/testthat/test-mts_plot.R](/Users/earn/r/earnmisc/tests/testthat/test-mts_plot.R)
+
+Existing dirty `PROMPT_latest.md` and `PROMPTS_used.md` were left untouched.
+
+**Tests added**
+Added coverage for metadata, stored plot info, name and position matching, unmatched policies, column restriction, graphical parameter handling, repeated overlays, wrapper behaviour, validation, and curve registry accumulation.
+
+**Verification**
+- `make document` passed.
+- `make test` passed.
+- `make check` passed with `Status: OK`.
+
+`make check` printed repository index access warnings due restricted network access, but they did not affect the final check status.
