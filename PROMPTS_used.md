@@ -5359,5 +5359,7 @@ The check printed repository index access warnings due restricted network access
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260515T200531Z -->
-_Pending._
+- Recorded: `2026-05-15T20:09:14+00:00`
+- Hash: `9dd46c2207783605037722b01bd8eb4e405b707a`
+- Subject: Fix mts source tracking for legends
 <!-- codex-workflow-commit-end: 20260515T200531Z -->
