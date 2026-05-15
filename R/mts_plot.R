@@ -15,6 +15,9 @@ mts_plot_store$last <- NULL
 #'   matrix with a regular sequence time index.
 #' @param columns Optional column names or indices to plot.
 #' @param nrow,ncol Optional panel layout dimensions.
+#' @param blank.panels Optional positive integer vector of full layout panel
+#'   indices to reserve for later legends, annotations, or custom graphics.
+#'   Reserved panels are blank after `plot_mts()` finishes.
 #' @param main Optional outer title.
 #' @param xlab X-axis label.
 #' @param ylab Optional y-axis label. If `NULL`, each panel uses its column name.
@@ -25,7 +28,8 @@ mts_plot_store$last <- NULL
 #' @param ... Additional arguments passed to [graphics::plot.default()].
 #'
 #' @return Invisibly returns an `earnmisc_mts_plot_info` list containing panel
-#'   metadata and a `curves` registry.
+#'   metadata and a `curves` registry. The registry is used by [legend_mts()]
+#'   and can also be inspected directly.
 #'
 #' @examples
 #' x <- stats::ts(cbind(a = 1:10, b = 11:20))
@@ -34,12 +38,23 @@ mts_plot_store$last <- NULL
 #' plot.info <- lines_mts(y, plot.info = plot.info)
 #' plot.info$curves
 #'
+#' x3 <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+#' y3 <- stats::ts(cbind(a = 2:11, b = 10:19, c = 20:29))
+#' plot.info <- plot_mts(x3, blank.panels = 1)
+#' plot.info <- lines_mts(y3, plot.info = plot.info, source = "overlay")
+#' legend_mts(plot.info)
+#'
+#' plot.info <- plot_mts(x3, blank.panels = c(1, 4))
+#' set_mts_panel(4, plot.info)
+#' graphics::text(0.5, 0.5, "Notes")
+#'
 #' @export
 plot_mts <- function(
   x,
   columns = NULL,
   nrow = NULL,
   ncol = NULL,
+  blank.panels = NULL,
   main = NULL,
   xlab = "Time",
   ylab = NULL,
@@ -61,7 +76,11 @@ plot_mts <- function(
     argument.name = "columns"
   )
   selected.names <- mts.data$column.names[selected.columns]
-  layout <- mts_layout_dims(length(selected.columns), nrow = nrow, ncol = ncol)
+  blank.panels <- resolve_blank_panels(blank.panels, n.data.panels = length(selected.columns))
+  total.panels <- length(selected.columns) + length(blank.panels)
+  data.panels <- setdiff(seq_len(total.panels), blank.panels)
+  panel.roles <- mts_panel_roles(total.panels, blank.panels)
+  layout <- mts_layout_dims(total.panels, nrow = nrow, ncol = ncol)
   graphics.parameters <- resolve_mts_graphics(
     n = length(selected.columns),
     col = col,
@@ -78,14 +97,26 @@ plot_mts <- function(
   }
   graphics::par(mfrow = c(layout$nrow, layout$ncol))
 
-  usr <- vector("list", length(selected.columns))
-  mfg <- vector("list", length(selected.columns))
+  usr <- vector("list", total.panels)
+  mfg <- vector("list", total.panels)
   xlim <- range(mts.data$time, finite = TRUE)
-  ylim <- vector("list", length(selected.columns))
+  ylim <- vector("list", total.panels)
+  panel.names <- rep(NA_character_, total.panels)
+  panel.columns <- rep(NA_integer_, total.panels)
 
-  for (panel.index in seq_along(selected.columns)) {
-    column.index <- selected.columns[[panel.index]]
-    panel.name <- selected.names[[panel.index]]
+  for (panel.index in seq_len(total.panels)) {
+    if (panel.roles[[panel.index]] == "blank") {
+      graphics::plot.new()
+      graphics::plot.window(xlim = c(0, 1), ylim = c(0, 1), xaxs = "i", yaxs = "i")
+      usr[[panel.index]] <- graphics::par("usr")
+      mfg[[panel.index]] <- graphics::par("mfg")
+      ylim[[panel.index]] <- c(0, 1)
+      next
+    }
+
+    data.index <- match(panel.index, data.panels)
+    column.index <- selected.columns[[data.index]]
+    panel.name <- selected.names[[data.index]]
     panel.ylab <- if (is.null(ylab)) panel.name else ylab
 
     graphics::plot.default(
@@ -95,9 +126,9 @@ plot_mts <- function(
       xlab = xlab,
       ylab = panel.ylab,
       main = panel.name,
-      col = graphics.parameters$col[[panel.index]],
-      lty = graphics.parameters$lty[[panel.index]],
-      lwd = graphics.parameters$lwd[[panel.index]],
+      col = graphics.parameters$col[[data.index]],
+      lty = graphics.parameters$lty[[data.index]],
+      lwd = graphics.parameters$lwd[[data.index]],
       axes = axes,
       frame.plot = frame.plot,
       ...
@@ -106,6 +137,8 @@ plot_mts <- function(
     usr[[panel.index]] <- graphics::par("usr")
     mfg[[panel.index]] <- graphics::par("mfg")
     ylim[[panel.index]] <- range(mts.data$matrix[, column.index], finite = TRUE)
+    panel.names[[panel.index]] <- panel.name
+    panel.columns[[panel.index]] <- column.index
   }
 
   if (!is.null(main)) {
@@ -117,7 +150,7 @@ plot_mts <- function(
     object.index = 0L,
     column = selected.columns,
     name = selected.names,
-    panel.index = seq_along(selected.columns),
+    panel.index = data.panels,
     panel.name = selected.names,
     col = graphics.parameters$col,
     lty = graphics.parameters$lty,
@@ -133,13 +166,26 @@ plot_mts <- function(
     columns = selected.columns,
     column.names = selected.names,
     original.column.names = mts.data$original.column.names,
-    panel.order = seq_along(selected.columns),
+    panel.order = data.panels,
     layout = layout,
     time = mts.data$time,
     usr = usr,
     mfg = mfg,
     xlim = xlim,
     ylim = ylim,
+    blank.panels = if (length(blank.panels) == 0L) NULL else blank.panels,
+    data.panels = data.panels,
+    panel.roles = panel.roles,
+    panels = make_mts_panel_metadata(
+      panel.index = seq_len(total.panels),
+      role = panel.roles,
+      name = panel.names,
+      column = panel.columns,
+      mfg = mfg,
+      usr = usr,
+      xlim = rep(list(xlim), total.panels),
+      ylim = ylim
+    ),
     device = unname(grDevices::dev.cur()),
     created_at = Sys.time(),
     curves = curves
@@ -154,7 +200,8 @@ plot_mts <- function(
 #'
 #' Overlay selected columns from an `mts`-like object onto panels created by
 #' [plot_mts()]. This function is not intended for arbitrary existing
-#' `plot.mts()` output.
+#' `plot.mts()` output. When [plot_mts()] has reserved blank panels,
+#' `lines_mts()` overlays on the correct data panels and skips reserved panels.
 #'
 #' @param y Overlay multivariate time-series object.
 #' @param plot.info Plot metadata returned by [plot_mts()]. If `NULL`, the most
@@ -251,7 +298,7 @@ lines_mts <- function(
     panel.index <- matched.panels[[selected.index]]
     drawn <- !is.na(panel.index)
     reason <- if (drawn) NA_character_ else "unmatched"
-    panel.name <- if (drawn) plot.info$column.names[[panel.index]] else NA_character_
+    panel.name <- if (drawn) plot.info$panels[[panel.index]]$name else NA_character_
 
     if (drawn) {
       graphics::par(mfg = plot.info$mfg[[panel.index]])
@@ -399,6 +446,154 @@ plot_mts_overlay <- function(
   invisible(plot.info)
 }
 
+#' Reinitialise an mts plot panel
+#'
+#' Select a panel from a layout created by [plot_mts()], clear it with
+#' [graphics::plot.new()], and initialise a simple coordinate system with
+#' [graphics::plot.window()]. This is intended mainly for reserved blank panels
+#' used for legends, notes, or later custom graphics. It clears the selected
+#' panel, so it is not intended for adding annotations on top of an already
+#' drawn data panel; a future `add_to_mts_panel()` helper may support that.
+#'
+#' @param panel Full layout panel index.
+#' @param plot.info Plot metadata returned by [plot_mts()]. If `NULL`, the most
+#'   recent `plot_mts()` result is used.
+#' @param xlim,ylim Coordinate limits passed to [graphics::plot.window()].
+#' @param axes Logical value. If `TRUE`, simple axes and a box are drawn after
+#'   the plot window is initialised.
+#' @param xaxs,yaxs Axis style arguments passed to [graphics::plot.window()].
+#' @param ... Additional arguments passed to [graphics::plot.window()].
+#'
+#' @return Invisibly returns metadata for the selected panel.
+#'
+#' @examples
+#' x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+#' plot.info <- plot_mts(x, blank.panels = c(1, 4))
+#' set_mts_panel(4, plot.info)
+#' graphics::text(0.5, 0.5, "Notes")
+#'
+#' @export
+set_mts_panel <- function(
+  panel,
+  plot.info = NULL,
+  xlim = c(0, 1),
+  ylim = c(0, 1),
+  axes = FALSE,
+  xaxs = "i",
+  yaxs = "i",
+  ...
+) {
+  plot.info <- resolve_mts_plot_info(plot.info, caller = "set_mts_panel")
+  panel <- validate_mts_panel_index(panel, plot.info)
+
+  graphics::par(mfg = plot.info$mfg[[panel]])
+  graphics::plot.new()
+  graphics::plot.window(xlim = xlim, ylim = ylim, xaxs = xaxs, yaxs = yaxs, ...)
+  if (isTRUE(axes)) {
+    graphics::axis(1)
+    graphics::axis(2)
+    graphics::box()
+  }
+
+  panel.metadata <- plot.info$panels[[panel]]
+  panel.metadata$usr <- graphics::par("usr")
+  panel.metadata$mfg <- graphics::par("mfg")
+  panel.metadata$xlim <- xlim
+  panel.metadata$ylim <- ylim
+
+  invisible(panel.metadata)
+}
+
+#' Add a legend to an mts plot panel
+#'
+#' Draw a legend for curves recorded by [plot_mts()] and [lines_mts()]. By
+#' default, the legend is drawn in the first panel reserved with
+#' `blank.panels`; otherwise supply `panel` explicitly.
+#'
+#' @param plot.info Plot metadata returned by [plot_mts()]. If `NULL`, the most
+#'   recent `plot_mts()` result is used.
+#' @param panel Optional full layout panel index. If `NULL`, the first blank
+#'   panel in `plot.info$blank.panels` is used.
+#' @param by Legend grouping: `"source"`, `"curve"`, or `"column"`.
+#' @param legend Optional legend labels. If `NULL`, labels are constructed from
+#'   the selected curve grouping.
+#' @param x,inset,bty Arguments passed to [graphics::legend()].
+#' @param ... Additional arguments passed to [graphics::legend()]. Same-named
+#'   values such as `col`, `lty`, or `lwd` override the defaults constructed
+#'   from `plot.info$curves`.
+#'
+#' @return Invisibly returns a list containing the legend panel, grouping,
+#'   labels, graphical parameters, selected curves, and the result from
+#'   [graphics::legend()].
+#'
+#' @examples
+#' x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+#' y <- stats::ts(cbind(a = 2:11, b = 10:19, c = 20:29))
+#' plot.info <- plot_mts(x, blank.panels = 1)
+#' plot.info <- lines_mts(y, plot.info = plot.info, source = "overlay")
+#' legend_mts(plot.info)
+#'
+#' @export
+legend_mts <- function(
+  plot.info = NULL,
+  panel = NULL,
+  by = c("source", "curve", "column"),
+  legend = NULL,
+  x = "center",
+  inset = 0,
+  bty = "n",
+  ...
+) {
+  plot.info <- resolve_mts_plot_info(plot.info, caller = "legend_mts")
+  by <- match.arg(by)
+
+  if (is.null(panel)) {
+    if (is.null(plot.info$blank.panels) || length(plot.info$blank.panels) == 0L) {
+      stop("`legend_mts()` needs `panel` or a plot with reserved `blank.panels`.", call. = FALSE)
+    }
+    panel <- plot.info$blank.panels[[1L]]
+  }
+  panel <- validate_mts_panel_index(panel, plot.info)
+
+  selected.curves <- select_mts_legend_curves(plot.info$curves, by = by)
+  if (nrow(selected.curves) == 0L) {
+    stop("No drawn mts curves are available for a legend.", call. = FALSE)
+  }
+  if (is.null(legend)) {
+    legend <- make_mts_legend_labels(selected.curves, by = by)
+  }
+
+  set_mts_panel(panel, plot.info = plot.info)
+  legend.args <- merge_call_args(
+    defaults = list(
+      x = x,
+      legend = legend,
+      col = selected.curves$col,
+      lty = mts_legend_lty(selected.curves$lty),
+      lwd = selected.curves$lwd,
+      inset = inset,
+      bty = bty
+    ),
+    overrides = list(...),
+    protected = character(),
+    argument.name = "..."
+  )
+  legend.result <- do.call(graphics::legend, legend.args)
+
+  out <- list(
+    panel = panel,
+    by = by,
+    legend = legend,
+    col = legend.args$col,
+    lty = legend.args$lty,
+    lwd = legend.args$lwd,
+    curves = selected.curves,
+    legend.result = legend.result
+  )
+
+  invisible(out)
+}
+
 #' Coerce an object to mts plotting data
 #'
 #' Return matrix data, time index, and column names for an mts-like object.
@@ -467,6 +662,93 @@ mts_layout_dims <- function(n, nrow = NULL, ncol = NULL) {
   colour_grid_dims(n, nrow = nrow, ncol = ncol)
 }
 
+#' Resolve blank mts panels
+#'
+#' Validate reserved blank panel indices for a full mts layout.
+#'
+#' @param blank.panels Optional vector of reserved panel indices.
+#' @param n.data.panels Number of panels needed for data series.
+#'
+#' @return Integer vector of blank panel indices, possibly length zero.
+#' @noRd
+resolve_blank_panels <- function(blank.panels, n.data.panels) {
+  if (is.null(blank.panels)) {
+    return(integer())
+  }
+  if (!is.numeric(blank.panels) || length(blank.panels) == 0L ||
+      anyNA(blank.panels) || any(blank.panels != floor(blank.panels))) {
+    stop("`blank.panels` must be `NULL` or a positive integer vector.", call. = FALSE)
+  }
+
+  blank.panels <- as.integer(blank.panels)
+  total.panels <- n.data.panels + length(blank.panels)
+
+  if (any(blank.panels < 1L)) {
+    stop("`blank.panels` must contain positive integers.", call. = FALSE)
+  }
+  if (anyDuplicated(blank.panels)) {
+    stop("`blank.panels` must contain unique panel indices.", call. = FALSE)
+  }
+  if (any(blank.panels > total.panels)) {
+    stop("`blank.panels` contains panel indices outside the full layout range.", call. = FALSE)
+  }
+
+  sort(blank.panels)
+}
+
+#' Return mts panel roles
+#'
+#' Build a character vector describing whether each full layout panel is data
+#' or blank.
+#'
+#' @param total.panels Total number of layout panels.
+#' @param blank.panels Integer vector of blank panels.
+#'
+#' @return Character vector with values `"data"` and `"blank"`.
+#' @noRd
+mts_panel_roles <- function(total.panels, blank.panels) {
+  panel.roles <- rep("data", total.panels)
+  panel.roles[blank.panels] <- "blank"
+  panel.roles
+}
+
+#' Create mts panel metadata
+#'
+#' Combine full-layout panel metadata into a list indexed by panel number.
+#'
+#' @param panel.index Integer panel indices.
+#' @param role Character panel roles.
+#' @param name Panel names.
+#' @param column Source data column indices.
+#' @param mfg,usr,xlim,ylim Lists of graphics metadata.
+#'
+#' @return A named list of panel metadata lists.
+#' @noRd
+make_mts_panel_metadata <- function(panel.index,
+                                    role,
+                                    name,
+                                    column,
+                                    mfg,
+                                    usr,
+                                    xlim,
+                                    ylim) {
+  panels <- vector("list", length(panel.index))
+  for (index in seq_along(panel.index)) {
+    panels[[index]] <- list(
+      panel.index = panel.index[[index]],
+      role = role[[index]],
+      name = name[[index]],
+      column = column[[index]],
+      mfg = mfg[[index]],
+      usr = usr[[index]],
+      xlim = xlim[[index]],
+      ylim = ylim[[index]]
+    )
+  }
+  names(panels) <- as.character(panel.index)
+  panels
+}
+
 #' Resolve mts columns
 #'
 #' Resolve optional numeric or character column selections.
@@ -522,10 +804,12 @@ match_mts_columns <- function(y.column.names, y.columns, plot.info, match) {
     }
 
     selected.names <- y.column.names[y.columns]
-    return(match(selected.names, plot.info$column.names))
+    data.positions <- match(selected.names, plot.info$column.names)
+    return(plot.info$data.panels[data.positions])
   }
 
-  match(y.columns, plot.info$columns)
+  data.positions <- match(y.columns, plot.info$columns)
+  plot.info$data.panels[data.positions]
 }
 
 #' Resolve mts graphical parameters
@@ -645,7 +929,7 @@ last_mts_plot_info <- function() {
 #' @return Invisibly returns `plot.info`.
 #' @noRd
 validate_mts_plot_info <- function(plot.info) {
-  required.names <- c("columns", "column.names", "usr", "mfg", "curves")
+  required.names <- c("columns", "column.names", "usr", "mfg", "curves", "data.panels", "panel.roles", "panels")
 
   if (!inherits(plot.info, "earnmisc_mts_plot_info") ||
       !all(required.names %in% names(plot.info))) {
@@ -653,6 +937,45 @@ validate_mts_plot_info <- function(plot.info) {
   }
 
   invisible(plot.info)
+}
+
+#' Resolve mts plot metadata
+#'
+#' Use explicit plot metadata or the most recently stored [plot_mts()] result.
+#'
+#' @param plot.info Optional plot metadata.
+#' @param caller Name of calling function for error messages.
+#'
+#' @return Validated `earnmisc_mts_plot_info` object.
+#' @noRd
+resolve_mts_plot_info <- function(plot.info = NULL, caller = "mts helper") {
+  if (is.null(plot.info)) {
+    plot.info <- last_mts_plot_info()
+    if (is.null(plot.info)) {
+      stop("`", caller, "()` requires a `plot.info` object from `plot_mts()` or a prior call to `plot_mts()`.", call. = FALSE)
+    }
+  }
+  validate_mts_plot_info(plot.info)
+  plot.info
+}
+
+#' Validate an mts panel index
+#'
+#' Validate a scalar full-layout panel index for an mts plot-info object.
+#'
+#' @param panel Panel index.
+#' @param plot.info Plot metadata.
+#'
+#' @return Integer scalar panel index.
+#' @noRd
+validate_mts_panel_index <- function(panel, plot.info) {
+  n.panels <- length(plot.info$panel.roles)
+  if (!is.numeric(panel) || length(panel) != 1L || is.na(panel) ||
+      panel != floor(panel) || panel < 1L || panel > n.panels) {
+    stop("`panel` must be a valid full-layout panel index.", call. = FALSE)
+  }
+
+  as.integer(panel)
 }
 
 #' Return next overlay object index
@@ -703,6 +1026,78 @@ overlay_graphic_parameter <- function(x, index, default) {
 default_mts_overlay_colour <- function(index) {
   colours <- c("red", "blue", "darkgreen", "purple", "orange", "brown", "magenta", "cyan4")
   colours[((index - 1L) %% length(colours)) + 1L]
+}
+
+#' Select curves for an mts legend
+#'
+#' Select drawn curve-registry rows according to a legend grouping.
+#'
+#' @param curves Curve registry from a plot-info object.
+#' @param by Grouping mode.
+#'
+#' @return Data frame of selected curve rows.
+#' @noRd
+select_mts_legend_curves <- function(curves, by) {
+  drawn.curves <- curves[curves$drawn, , drop = FALSE]
+  if (nrow(drawn.curves) == 0L) {
+    return(drawn.curves)
+  }
+
+  if (identical(by, "curve")) {
+    return(drawn.curves)
+  }
+  if (identical(by, "source")) {
+    return(drawn.curves[!duplicated(drawn.curves$source), , drop = FALSE])
+  }
+
+  grouping <- drawn.curves$panel.name
+  missing.grouping <- is.na(grouping) | !nzchar(grouping)
+  grouping[missing.grouping] <- drawn.curves$name[missing.grouping]
+  drawn.curves[!duplicated(grouping), , drop = FALSE]
+}
+
+#' Create default mts legend labels
+#'
+#' Create readable labels for selected curve-registry rows.
+#'
+#' @param curves Selected curve-registry rows.
+#' @param by Grouping mode.
+#'
+#' @return Character vector of legend labels.
+#' @noRd
+make_mts_legend_labels <- function(curves, by) {
+  if (identical(by, "source")) {
+    return(curves$source)
+  }
+  if (identical(by, "column")) {
+    labels <- curves$panel.name
+    missing.labels <- is.na(labels) | !nzchar(labels)
+    labels[missing.labels] <- curves$name[missing.labels]
+    return(labels)
+  }
+
+  curve.names <- curves$panel.name
+  missing.names <- is.na(curve.names) | !nzchar(curve.names)
+  curve.names[missing.names] <- curves$name[missing.names]
+  paste0(curves$source, ": ", curve.names)
+}
+
+#' Normalise legend line types
+#'
+#' Convert numeric line types stored as character values in the curve registry
+#' back to numeric values before calling [graphics::legend()].
+#'
+#' @param lty Line-type vector from the curve registry.
+#'
+#' @return Numeric or character line-type vector.
+#' @noRd
+mts_legend_lty <- function(lty) {
+  numeric.lty <- suppressWarnings(as.numeric(lty))
+  if (all(!is.na(numeric.lty))) {
+    return(numeric.lty)
+  }
+
+  lty
 }
 
 #' Merge constructed call arguments with user overrides

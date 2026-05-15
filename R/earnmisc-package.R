@@ -8,7 +8,8 @@
 #' * Okabe-Ito colour palette helpers.
 #' * Colour swatch display helpers.
 #' * Small base graphics helpers, including vectorised `xys_line()`.
-#' * Multivariate time-series plotting helpers.
+#' * Multivariate time-series plotting helpers, including reserved blank panels
+#'   and `legend_mts()`.
 #' * Base graphics plot metadata helpers.
 #' * List and object representation helpers.
 #' * Lightweight TeX label helpers, including `nice_text()`.

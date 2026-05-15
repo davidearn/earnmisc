@@ -9,14 +9,63 @@ test_that("plot_mts returns plot metadata and base curve registry", {
   expect_false(result$visible)
   plot.info <- result$value
   expect_s3_class(plot.info, "earnmisc_mts_plot_info")
-  expect_true(all(c("panel.order", "column.names", "layout", "device", "usr", "mfg", "xlim", "ylim", "curves") %in% names(plot.info)))
+  expect_true(all(c("panel.order", "column.names", "layout", "device", "usr", "mfg", "xlim", "ylim", "blank.panels", "data.panels", "panel.roles", "panels", "curves") %in% names(plot.info)))
   expect_identical(plot.info$column.names, c("a", "b"))
   expect_identical(plot.info$panel.order, 1:2)
+  expect_null(plot.info$blank.panels)
+  expect_identical(plot.info$data.panels, 1:2)
+  expect_identical(plot.info$panel.roles, c("data", "data"))
   expect_equal(nrow(plot.info$curves), 2)
   expect_identical(plot.info$curves$source, c("base", "base"))
   expect_identical(plot.info$curves$object.index, c(0L, 0L))
   expect_true(all(plot.info$curves$drawn))
   expect_true(all(is.na(plot.info$curves$reason)))
+})
+
+test_that("plot_mts reserves blank panels and records data panels", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+
+  first.blank <- plot_mts(x, blank.panels = 1)
+  expect_identical(first.blank$blank.panels, 1L)
+  expect_identical(first.blank$data.panels, c(2L, 3L, 4L))
+  expect_identical(first.blank$panel.roles, c("blank", "data", "data", "data"))
+  expect_identical(first.blank$curves$panel.index, c(2L, 3L, 4L))
+
+  middle.blank <- plot_mts(x, blank.panels = 2)
+  expect_identical(middle.blank$blank.panels, 2L)
+  expect_identical(middle.blank$data.panels, c(1L, 3L, 4L))
+  expect_identical(middle.blank$panel.roles, c("data", "blank", "data", "data"))
+  expect_identical(middle.blank$curves$panel.index, c(1L, 3L, 4L))
+
+  final.blank <- plot_mts(x, blank.panels = 4)
+  expect_identical(final.blank$blank.panels, 4L)
+  expect_identical(final.blank$data.panels, c(1L, 2L, 3L))
+  expect_identical(final.blank$panel.roles, c("data", "data", "data", "blank"))
+  expect_identical(final.blank$curves$panel.index, c(1L, 2L, 3L))
+
+  multiple.blank <- plot_mts(x, blank.panels = c(1, 4))
+  expect_identical(multiple.blank$blank.panels, c(1L, 4L))
+  expect_identical(multiple.blank$data.panels, c(2L, 3L, 5L))
+  expect_identical(multiple.blank$panel.roles, c("blank", "data", "data", "blank", "data"))
+  expect_identical(multiple.blank$curves$panel.index, c(2L, 3L, 5L))
+})
+
+test_that("plot_mts validates blank panels", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+
+  expect_error(plot_mts(x, blank.panels = c(1, 1)), "unique")
+  expect_error(plot_mts(x, blank.panels = 0), "positive")
+  expect_error(plot_mts(x, blank.panels = -1), "positive")
+  expect_error(plot_mts(x, blank.panels = 1.5), "positive integer")
+  expect_error(plot_mts(x, blank.panels = 5), "outside")
 })
 
 test_that("lines_mts uses stored plot info and errors when none is available", {
@@ -134,6 +183,27 @@ test_that("repeated lines_mts calls accumulate curve registry rows", {
   expect_identical(plot.info$curves$source, c("base", "base", "y", "y", "z", "z"))
 })
 
+test_that("lines_mts overlays on data panels when blank panels are present", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+  y <- stats::ts(cbind(c = 20:29, b = 10:19, a = 2:11))
+  z <- stats::ts(cbind(a = 3:12, b = 9:18, c = 19:28))
+
+  plot.info <- plot_mts(x, blank.panels = c(1, 4))
+  plot.info <- lines_mts(y, plot.info = plot.info)
+  overlay.rows <- plot.info$curves[plot.info$curves$source == "overlay", ]
+  expect_identical(overlay.rows$name, c("c", "b", "a"))
+  expect_identical(overlay.rows$panel.index, c(5L, 3L, 2L))
+
+  plot.info <- lines_mts(z, plot.info = plot.info, source = "z")
+  expect_equal(nrow(plot.info$curves), 9)
+  z.rows <- plot.info$curves[plot.info$curves$source == "z", ]
+  expect_identical(z.rows$panel.index, c(2L, 3L, 5L))
+})
+
 test_that("plot_mts_overlay handles one or more overlays", {
   pdf.file <- tempfile(fileext = ".pdf")
   grDevices::pdf(pdf.file)
@@ -152,6 +222,82 @@ test_that("plot_mts_overlay handles one or more overlays", {
   expect_equal(nrow(many$curves), 6)
   expect_identical(many$curves$object.index, c(0L, 0L, 1L, 1L, 2L, 2L))
   expect_identical(many$curves$source, c("base", "base", "first", "first", "second", "second"))
+})
+
+test_that("plot_mts_overlay passes blank panels through plot.args", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+  y <- stats::ts(cbind(a = 2:11, b = 10:19, c = 20:29))
+
+  plot.info <- plot_mts_overlay(x, y, plot.args = list(blank.panels = 1))
+
+  expect_identical(plot.info$blank.panels, 1L)
+  expect_identical(plot.info$data.panels, c(2L, 3L, 4L))
+  expect_identical(plot.info$curves$panel.index, c(2L, 3L, 4L, 2L, 3L, 4L))
+})
+
+test_that("set_mts_panel works with explicit and stored plot info", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+  plot.info <- plot_mts(x, blank.panels = 1)
+
+  explicit <- withVisible(set_mts_panel(1, plot.info, xlim = c(-1, 1), ylim = c(2, 3), axes = TRUE, xaxs = "r", yaxs = "r"))
+  expect_false(explicit$visible)
+  expect_identical(explicit$value$panel.index, 1L)
+  expect_identical(explicit$value$xlim, c(-1, 1))
+  expect_identical(explicit$value$ylim, c(2, 3))
+
+  stored <- set_mts_panel(1)
+  expect_identical(stored$panel.index, 1L)
+  expect_error(set_mts_panel(99, plot.info), "valid full-layout panel")
+})
+
+test_that("legend_mts builds legends from curve registry", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+  y <- stats::ts(cbind(a = 2:11, b = 10:19, c = 20:29))
+  plot.info <- plot_mts(x, blank.panels = 1)
+  plot.info <- lines_mts(y, plot.info = plot.info, source = "overlay")
+
+  by.source <- withVisible(legend_mts(plot.info))
+  expect_false(by.source$visible)
+  expect_identical(by.source$value$panel, 1L)
+  expect_identical(by.source$value$by, "source")
+  expect_identical(by.source$value$legend, c("base", "overlay"))
+  expect_equal(nrow(by.source$value$curves), 2)
+
+  by.column <- legend_mts(plot.info, by = "column", panel = 1)
+  expect_identical(by.column$legend, c("a", "b", "c"))
+
+  by.curve <- legend_mts(plot.info, by = "curve", panel = 1)
+  expect_identical(by.curve$legend, c("base: a", "base: b", "base: c", "overlay: a", "overlay: b", "overlay: c"))
+
+  explicit <- legend_mts(plot.info, panel = 1, legend = c("x", "y"), col = c("red", "blue"), lty = c(1, 2), lwd = c(2, 3))
+  expect_identical(explicit$legend, c("x", "y"))
+  expect_identical(explicit$col, c("red", "blue"))
+  expect_identical(explicit$lty, c(1, 2))
+  expect_identical(explicit$lwd, c(2, 3))
+})
+
+test_that("legend_mts requires a panel when no blank panel exists", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  plot.info <- plot_mts(x)
+
+  expect_error(legend_mts(plot.info), "reserved `blank.panels`")
+  expect_silent(legend_mts(plot.info, panel = 1))
 })
 
 test_that("plot_mts_overlay lets plot.args override base defaults", {

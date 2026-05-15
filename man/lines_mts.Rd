@@ -47,7 +47,8 @@ registry rows.
 \description{
 Overlay selected columns from an \code{mts}-like object onto panels created by
 \code{\link[=plot_mts]{plot_mts()}}. This function is not intended for arbitrary existing
-\code{plot.mts()} output.
+\code{plot.mts()} output. When \code{\link[=plot_mts]{plot_mts()}} has reserved blank panels,
+\code{lines_mts()} overlays on the correct data panels and skips reserved panels.
 }
 \examples{
 x <- stats::ts(cbind(a = 1:10, b = 11:20))

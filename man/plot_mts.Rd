@@ -9,6 +9,7 @@ plot_mts(
   columns = NULL,
   nrow = NULL,
   ncol = NULL,
+  blank.panels = NULL,
   main = NULL,
   xlab = "Time",
   ylab = NULL,
@@ -31,6 +32,10 @@ matrix with a regular sequence time index.}
 
 \item{nrow, ncol}{Optional panel layout dimensions.}
 
+\item{blank.panels}{Optional positive integer vector of full layout panel
+indices to reserve for later legends, annotations, or custom graphics.
+Reserved panels are blank after \code{plot_mts()} finishes.}
+
 \item{main}{Optional outer title.}
 
 \item{xlab}{X-axis label.}
@@ -48,7 +53,8 @@ and \code{lwd} may be scalar, vectorised by selected column, or named by column.
 }
 \value{
 Invisibly returns an \code{earnmisc_mts_plot_info} list containing panel
-metadata and a \code{curves} registry.
+metadata and a \code{curves} registry. The registry is used by \code{\link[=legend_mts]{legend_mts()}}
+and can also be inspected directly.
 }
 \description{
 Plot selected columns of a multivariate time series, one column per panel,
@@ -66,5 +72,15 @@ y <- stats::ts(cbind(a = 2:11, b = 10:19))
 plot.info <- plot_mts(x)
 plot.info <- lines_mts(y, plot.info = plot.info)
 plot.info$curves
+
+x3 <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+y3 <- stats::ts(cbind(a = 2:11, b = 10:19, c = 20:29))
+plot.info <- plot_mts(x3, blank.panels = 1)
+plot.info <- lines_mts(y3, plot.info = plot.info, source = "overlay")
+legend_mts(plot.info)
+
+plot.info <- plot_mts(x3, blank.panels = c(1, 4))
+set_mts_panel(4, plot.info)
+graphics::text(0.5, 0.5, "Notes")
 
 }
