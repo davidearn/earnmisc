@@ -1,9 +1,9 @@
 # Latest Codex Prompt
 
-- Entry ID: `20260515T200531Z`
-- Recorded: `2026-05-15T20:05:31+00:00`
+- Entry ID: `20260515T205031Z`
+- Recorded: `2026-05-15T20:50:31+00:00`
 
-Please fix source tracking for the `earnmisc` `mts` plotting helpers so that `legend_mts(by = "source")` distinguishes repeated `lines_mts()` calls.
+Please make `source` labels in the `earnmisc` `mts` plotting helpers flexible enough for `graphics::legend()`.
 
 Read `AGENTS.md` first and follow it closely.
 
@@ -13,244 +13,204 @@ Do not create Git commits.
 
 ## Problem
 
-The new `legend_mts()` function works in many respects, but `by = "source"` currently collapses repeated overlay calls into a single `"overlay"` source.
+The current `source` validation in `plot_mts()` and `lines_mts()` is too restrictive.
 
-Example:
+These currently fail:
 
 ```r
-library(earnmisc)
-library(gaemr)
+lines_mts(m[[1]], source = expression(R[0] == 2))
+```
 
-sol.2 <- solve_sir(R0 = 2, x.minus = 1, start.level = 0.02)
-sol.4 <- solve_sir(R0 = 4, x.minus = 1, start.level = 0.02)
-sol.8 <- solve_sir(R0 = 8, x.minus = 1, start.level = 0.02)
-m <- list(sol.2$series, sol.4$series, sol.8$series)
+with:
 
-plot_mts(
-  m[[3]],
-  las = 1,
-  bty = "L",
-  xlim = c(-1, 2),
-  lwd = 3,
-  col = oi.black,
-  blank.panels = c(2)
-)
-lines_mts(m[[2]], lty = 1, lwd = 2, col = oi.reddish_purple)
-lines_mts(m[[1]], lty = 1, lwd = 2, col = oi.sky_blue)
+```text
+Error: `source` must be `NULL` or a non-empty character scalar.
+```
+
+and:
+
+```r
+lines_mts(m[[1]], source = nice_text(r"($R_0 = 2$)"))
+```
+
+also fails, because:
+
+```r
+class(nice_text(r"($R_0 = 2$)"))
+```
+
+returns something like:
+
+```r
+c("latexexpression", "expression")
+```
+
+But this works:
+
+```r
+lines_mts(m[[1]], source = r"($R_0 = 2$)")
+```
+
+because it is just a character scalar.
+
+I would like `source` to be as flexible as the `legend` argument passed to `graphics::legend()`, at least for scalar labels.
+
+## Required behaviour
+
+`source` in `plot_mts()` and `lines_mts()` should accept:
+
+```r
+NULL
+"plain character label"
+expression(R[0] == 2)
+nice_text(r"($R_0 = 2$)")
+```
+
+The following should work:
+
+```r
+plot_mts(m[[3]], source = expression(R[0] == 8))
+lines_mts(m[[2]], source = expression(R[0] == 4))
+lines_mts(m[[1]], source = expression(R[0] == 2))
 legend_mts(by = "source")
 ```
 
-The legend currently has two entries:
-
-```text
-base
-overlay
-```
-
-This is wrong. There should be three entries corresponding to the three `mts` objects:
-
-```text
-m[[3]]
-m[[2]]
-m[[1]]
-```
-
-or user-supplied source labels if provided.
-
-The underlying issue is that all `lines_mts()` calls are apparently being recorded with the same source label, such as `"overlay"`, so the curve registry cannot distinguish overlay objects.
-
-## Required design
-
-Each call to `plot_mts()` and `lines_mts()` should record a distinct source label in `plot.info$curves`.
-
-### `plot_mts()`
-
-Add or revise an argument:
-
-```r
-source = NULL
-```
-
-Behaviour:
-
-- If `source` is supplied, use it as the source label for all base curves from `x`.
-- If `source = NULL`, use the unevaluated expression supplied for `x`, converted to a readable character label.
-
-For example:
-
-```r
-plot_mts(m[[3]])
-```
-
-should record source:
-
-```text
-m[[3]]
-```
-
 and:
 
 ```r
-plot_mts(m[[3]], source = "R0 = 8")
+plot_mts(m[[3]], source = nice_text(r"($R_0 = 8$)"))
+lines_mts(m[[2]], source = nice_text(r"($R_0 = 4$)"))
+lines_mts(m[[1]], source = nice_text(r"($R_0 = 2$)"))
+legend_mts(by = "source")
 ```
 
-should record source:
+In both cases, `legend_mts(by = "source")` should pass the expression-like labels through to `graphics::legend()` so the legend renders properly.
 
-```text
-R0 = 8
-```
+## Important internal design
 
-### `lines_mts()`
+Do not force expression-like labels into an ordinary character column and lose their class.
 
-Keep or revise the existing argument:
+The existing `plot.info$curves` data frame probably has a character `source` column. That is useful for grouping and inspection, but it is not enough for expression-valued legend labels.
+
+Please use this design:
+
+- Keep `plot.info$curves$source` as a character column for grouping and readable bookkeeping.
+- Add a separate column for display labels, preferably:
 
 ```r
-source = NULL
+source.label
 ```
 
-Behaviour:
+- Because `source.label` may contain character strings, expressions, or `latexexpression` objects, store it as a list-column using base R `I(list(...))` or an equivalent simple base-R approach.
 
-- If `source` is supplied, use it as the source label for all curves from that `lines_mts()` call.
-- If `source = NULL`, use the unevaluated expression supplied for `y`, converted to a readable character label.
+For each curve:
+- `source` should be a stable character key.
+- `source.label` should preserve the original user-facing label object.
 
-For example:
+If `source = NULL`, infer the source label from the input expression as before:
+- `source` is the inferred character label, such as `"m[[3]]"`;
+- `source.label` is the same character label.
+
+If `source` is a character scalar:
+- `source` is that character string;
+- `source.label` is that character string.
+
+If `source` is an expression-like scalar:
+- `source.label` preserves the expression-like object;
+- `source` is a stable character key derived from deparsing the expression-like object.
+
+Use a small helper if useful, for example:
 
 ```r
-lines_mts(m[[2]])
+normalise_mts_source()
 ```
 
-should record source:
-
-```text
-m[[2]]
-```
-
-and:
+It should return something like:
 
 ```r
-lines_mts(m[[2]], source = "R0 = 4")
+list(
+  key = character_scalar,
+  label = original_label_object
+)
 ```
 
-should record source:
+Document any non-exported helper with roxygen2 comments, following `AGENTS.md`.
 
-```text
-R0 = 4
-```
+## Validation
 
-Each `lines_mts()` call must preserve its own source label in the curve registry.
+Validation should be permissive but clear.
 
-Do not default repeated direct `lines_mts()` calls to the same label `"overlay"`.
+Accept:
+- `NULL`;
+- non-empty character scalar;
+- expression of length 1;
+- `"latexexpression"` / `"expression"` objects of length 1, such as those returned by `nice_text()`.
 
-### Source-label helper
+Reject:
+- empty character strings;
+- character vectors of length other than 1;
+- expression vectors of length other than 1;
+- lists or arbitrary objects that cannot reasonably be used as a legend label.
 
-Use a small internal helper if useful, for example:
-
-```r
-source_label <- function(expr, source = NULL)
-```
-
-or similar.
-
-A base R approach is sufficient. For example, use `deparse1(substitute(x))` or a compatibility equivalent if needed.
-
-Document any internal helper with roxygen2 comments, following `AGENTS.md`.
-
-### Source labels and legend labels
-
-`plot.info$curves$source` should be a character vector.
-
-If users want mathematical legend labels, they can still pass explicit labels to `legend_mts(legend = ...)`, or later we can consider allowing expression-valued source labels. For this fix, keep `source` as a character label unless the existing code already supports expression labels safely.
+Give clear error messages.
 
 ## `legend_mts(by = "source")`
 
-Revise `legend_mts(by = "source")` so that it creates one legend entry per distinct source in first-seen order, using drawn curves only.
+Update `legend_mts(by = "source")` so that:
 
-For the example above, after:
+- grouping is based on the character source key;
+- legend labels come from the preserved `source.label` values for the selected rows;
+- character labels remain character;
+- expression-like labels remain expression-like and are passed through to `graphics::legend()`.
 
-```r
-plot_mts(m[[3]], ...)
-lines_mts(m[[2]], ...)
-lines_mts(m[[1]], ...)
-legend_mts(by = "source")
-```
+Be careful constructing the `legend` argument for `graphics::legend()`.
 
-the default legend labels should be:
+If all selected labels are character, pass a character vector.
 
-```text
-m[[3]]
-m[[2]]
-m[[1]]
-```
+If any selected labels are expression-like, combine them into an expression object if possible, preserving plotmath behaviour.
 
-and the graphical parameters should correspond to the first drawn curve for each source.
+A simple robust rule is acceptable:
+- character labels can be converted to plotmath strings only if necessary, or left as character when all labels are character;
+- expression-like labels should remain expression-like.
 
-If users supply explicit legend labels:
+Do not break explicit `legend = ...` supplied directly to `legend_mts()`. If `legend` is supplied, it should override labels derived from `source.label`, as before.
 
-```r
-legend_mts(by = "source", legend = c("R0 = 8", "R0 = 4", "R0 = 2"))
-```
+## Other grouping modes
 
-those labels should override the source labels.
+Please check whether `by = "curve"` and `by = "column"` need similar label-preservation logic.
 
-## `object.index`
-
-Please also make sure `object.index` remains useful.
-
-Suggested policy:
-
-- base curves from `plot_mts()`: `object.index = 0L`;
-- each direct `lines_mts()` call increments the object index if `object.index = NULL`;
-- `plot_mts_overlay()` continues to set object indices explicitly:
-  - base object: `0L`;
-  - first overlay: `1L`;
-  - second overlay: `2L`;
-  - etc.
-
-This is important so future tools can distinguish both source labels and object order.
-
-If implementing automatic incrementing for direct `lines_mts()` calls is awkward, at minimum ensure repeated calls have distinct `source` labels. But the preferred design is to keep `object.index` distinct as well.
+At minimum:
+- `by = "source"` must preserve expression-like source labels.
+- Existing behaviour for `by = "column"` and `by = "curve"` should not regress.
 
 ## `plot_mts_overlay()`
 
-Update `plot_mts_overlay()` as needed so source labels remain good there too.
+Update `plot_mts_overlay()` as needed.
 
-Desired behaviour:
+It should accept expression-like labels through:
+- `source.x`, if supplied;
+- `overlay.names`, if supplied.
 
-- If `overlay.names` is supplied, use those as overlay source labels.
-- If `overlay.names` is not supplied, use readable labels derived from the overlay expressions in `...`, where possible.
-- The base object source should come from `source.x` if you add such an argument, or from the expression for `x` if not supplied.
+If `overlay.names` is character, preserve existing behaviour.
 
-Please use a definitive API. If a new explicit base-source argument is needed, use:
-
-```r
-source.x = NULL
-```
-
-and document it.
-
-For overlay source labels, continue to support:
-
-```r
-overlay.names = NULL
-```
-
-where `NULL` means derive labels from the overlay expressions.
+If `overlay.names` is expression-like, make sure it works for one or more overlays if feasible. If expression-vector support for multiple overlay labels is complicated, support the common case carefully and document any limitation.
 
 ## Tests
 
 Add or revise tests for:
 
-- `plot_mts(m[[3]])` records source `"m[[3]]"` or the exact readable expression produced by the implemented helper.
-- `lines_mts(m[[2]])` records source `"m[[2]]"` or the exact readable expression produced by the helper.
-- repeated direct `lines_mts()` calls produce distinct source values in `plot.info$curves`.
-- `legend_mts(by = "source")` selects one entry per distinct source, in first-seen order.
-- the motivating example pattern gives three source legend entries, not two.
-- explicit `source` in `plot_mts()` overrides the default source label.
-- explicit `source` in `lines_mts()` overrides the default source label.
-- explicit `legend` in `legend_mts()` overrides source-derived legend labels.
-- `plot_mts_overlay()` preserves explicit `overlay.names`.
-- `plot_mts_overlay()` derives overlay source labels from expressions when `overlay.names = NULL`.
-- `object.index` values are still sensible for base and overlay curves.
+- `plot_mts(..., source = expression(R[0] == 8))` succeeds.
+- `lines_mts(..., source = expression(R[0] == 4))` succeeds.
+- `lines_mts(..., source = nice_text(r"($R_0 = 4$)"))` succeeds.
+- `plot.info$curves` keeps a character `source` key.
+- `plot.info$curves` preserves expression-like labels in `source.label`.
+- `legend_mts(by = "source")` uses expression-like labels when source labels are expressions.
+- explicit `legend = ...` in `legend_mts()` still overrides source-derived labels.
+- ordinary character source labels still work.
+- inferred source labels from object expressions still work.
+- invalid source values error clearly.
+- repeated overlays with expression-like sources produce distinct source groups.
+- `plot_mts_overlay()` works with `source.x` and/or `overlay.names` where applicable.
 
 Use temporary graphics devices and avoid image comparison.
 
@@ -267,23 +227,29 @@ legend_mts()
 
 Documentation should explain:
 
-- `source = NULL` means the source label is inferred from the input expression;
-- `source = "label"` lets the user override the inferred label;
-- `legend_mts(by = "source")` groups by these source labels;
-- repeated `lines_mts()` calls are tracked separately;
-- users can override legend labels directly with the `legend` argument to `legend_mts()`.
+- `source` may be a character scalar or a scalar expression/plotmath label;
+- `nice_text()` output can be used as a source label;
+- `legend_mts(by = "source")` uses source labels in the legend;
+- a character source key is still recorded internally for grouping and inspection;
+- explicit `legend = ...` supplied to `legend_mts()` overrides source-derived labels.
 
 Use Canadian spelling.
 
-Examples should include:
+Include examples such as:
 
 ```r
-plot.info <- plot_mts(x, source = "baseline")
-plot.info <- lines_mts(y, plot.info = plot.info, source = "comparison")
+plot.info <- plot_mts(x, source = expression(R[0] == 8))
+plot.info <- lines_mts(y, plot.info = plot.info, source = expression(R[0] == 4))
 legend_mts(plot.info, by = "source")
 ```
 
-and, if practical, an example showing inferred source labels.
+and perhaps:
+
+```r
+plot.info <- plot_mts(x, source = nice_text(r"($R_0 = 8$)"))
+plot.info <- lines_mts(y, plot.info = plot.info, source = nice_text(r"($R_0 = 4$)"))
+legend_mts(plot.info, by = "source")
+```
 
 ## Verification
 
@@ -296,12 +262,10 @@ make check
 ```
 
 Please report:
-1. What caused repeated overlays to collapse into one legend entry.
-2. How source labels are now inferred.
-3. How explicit source labels override inferred labels.
-4. How `legend_mts(by = "source")` now chooses entries.
-5. How `object.index` is handled for repeated direct overlays.
-6. What files changed.
-7. What tests were added or revised.
-8. What verification commands were run and their results.
-9. Any limitations or TODOs.
+1. Why expression-like source labels previously failed.
+2. How source keys and source display labels are now stored.
+3. How `legend_mts(by = "source")` preserves expression-like labels.
+4. How `plot_mts_overlay()` handles source labels and overlay names.
+5. What files changed.
+6. What tests were added or revised.
+7. What verification commands were run and their results.

@@ -10,8 +10,10 @@ mts_plot_store$last <- NULL
 #' call `plot_mts()` first, then pass the returned object to `lines_mts()`.
 #' Overlaying onto arbitrary existing [stats::plot.ts()] or `plot.mts()` output
 #' is not supported because base R does not expose a stable public panel map.
-#' Curve source labels are recorded in the `curves` registry. If `source` is
-#' `NULL`, the label is inferred from the expression supplied for `x`.
+#' Curve sources are recorded in the `curves` registry. The `source` column is
+#' a character key used for grouping and inspection. The `source.label`
+#' list-column preserves the display label, including expression-like labels
+#' used by [graphics::legend()].
 #'
 #' @param x Multivariate time-series object, or an object safely coercible to a
 #'   matrix with a regular sequence time index.
@@ -25,8 +27,10 @@ mts_plot_store$last <- NULL
 #' @param ylab Optional y-axis label. If `NULL`, each panel uses its column name.
 #' @param col,lty,lwd,type Graphical parameters for base curves. `col`, `lty`,
 #'   and `lwd` may be scalar, vectorised by selected column, or named by column.
-#' @param source Optional source label for the base curves. If `NULL`, a label
-#'   is inferred from the expression supplied for `x`.
+#' @param source Optional source label for the base curves. It may be a
+#'   non-empty character scalar or a scalar expression-like label, including
+#'   output from [nice_text()]. If `NULL`, a label is inferred from the
+#'   expression supplied for `x`.
 #' @param axes,frame.plot Logical values passed to [graphics::plot.default()].
 #' @param mar,oma Optional margin settings passed to [graphics::par()].
 #' @param ... Additional arguments passed to [graphics::plot.default()].
@@ -43,6 +47,9 @@ mts_plot_store$last <- NULL
 #' plot.info$curves
 #' plot.info <- plot_mts(x, source = "baseline")
 #' plot.info <- lines_mts(y, plot.info = plot.info, source = "comparison")
+#' legend_mts(plot.info, by = "source", panel = 1)
+#' plot.info <- plot_mts(x, source = expression(R[0] == 8))
+#' plot.info <- lines_mts(y, plot.info = plot.info, source = expression(R[0] == 4))
 #' legend_mts(plot.info, by = "source", panel = 1)
 #'
 #' x3 <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
@@ -76,7 +83,7 @@ plot_mts <- function(
   oma = NULL,
   ...
 ) {
-  source <- source_label(substitute(x), source = source)
+  source <- normalise_mts_source(substitute(x), source = source)
   mts.data <- as_mts_matrix(x)
   selected.columns <- resolve_mts_columns(
     columns,
@@ -155,7 +162,8 @@ plot_mts <- function(
   }
 
   curves <- make_mts_curve_registry(
-    source = source,
+    source = source$key,
+    source.label = source$label,
     object.index = 0L,
     column = selected.columns,
     name = selected.names,
@@ -224,9 +232,10 @@ plot_mts <- function(
 #'   `"error"`, or `"ignore"`.
 #' @param col,lty,lwd Overlay graphical parameters. They may be scalar,
 #'   vectorised by selected overlay column, or named by overlay column.
-#' @param source Optional curve source label. If `NULL`, a label is inferred
-#'   from the expression supplied for `y`. Repeated direct calls are therefore
-#'   tracked separately when they use different input expressions.
+#' @param source Optional curve source label. It may be a non-empty character
+#'   scalar or a scalar expression-like label, including output from
+#'   [nice_text()]. If `NULL`, a label is inferred from the expression supplied
+#'   for `y`.
 #' @param object.index Optional overlay object index for the curve registry.
 #' @param ... Additional arguments passed to [graphics::lines()].
 #'
@@ -253,7 +262,7 @@ lines_mts <- function(
   object.index = NULL,
   ...
 ) {
-  source <- source_label(substitute(y), source = source)
+  source <- normalise_mts_source(substitute(y), source = source)
   if (is.null(plot.info)) {
     plot.info <- last_mts_plot_info()
     if (is.null(plot.info)) {
@@ -326,7 +335,8 @@ lines_mts <- function(
     }
 
     new.curves[[selected.index]] <- make_mts_curve_registry(
-      source = source,
+      source = source$key,
+      source.label = source$label,
       object.index = object.index,
       column = y.column,
       name = selected.names[[selected.index]],
@@ -362,10 +372,12 @@ lines_mts <- function(
 #' @param col.y,lty.y,lwd.y Overlay graphical parameters. If `NULL`, simple
 #'   defaults are used. If a list, each element is used for the corresponding
 #'   overlay object; otherwise the value is reused for each overlay object.
-#' @param source.x Optional source label for the base object. If `NULL`, a label
-#'   is inferred from the expression supplied for `x`.
-#' @param overlay.names Optional source labels for overlay objects. If `NULL`,
-#'   labels are inferred from the expressions supplied in `...`.
+#' @param source.x Optional source label for the base object. It may be a
+#'   non-empty character scalar or scalar expression-like label. If `NULL`, a
+#'   label is inferred from the expression supplied for `x`.
+#' @param overlay.names Optional source labels for overlay objects. A character
+#'   vector or expression vector must contain one label per overlay object. If
+#'   `NULL`, labels are inferred from the expressions supplied in `...`.
 #' @param plot.args Additional arguments passed to [plot_mts()]. Same-named
 #'   values override base plotting defaults such as `col.x`, `lty.x`, and
 #'   `lwd.x`. Core arguments `x`, `columns`, and `source` cannot be supplied
@@ -421,17 +433,15 @@ plot_mts_overlay <- function(
   if (!is.list(lines.args)) {
     stop("`lines.args` must be a list.", call. = FALSE)
   }
-  if (!is.null(overlay.names) &&
-      (!is.character(overlay.names) || length(overlay.names) != length(overlays) || anyNA(overlay.names))) {
-    stop("`overlay.names` must be `NULL` or a character vector matching the number of overlays.", call. = FALSE)
-  }
-
   match <- match.arg(match)
   unmatched <- match.arg(unmatched)
-  if (is.null(overlay.names)) {
-    overlay.names <- vapply(overlay.expressions, source_label, source = NULL, FUN.VALUE = character(1))
-  }
-  source.x <- source_label(substitute(x), source = source.x)
+  overlay.names <- normalise_mts_source_vector(
+    sources = overlay.names,
+    expressions = overlay.expressions,
+    n = length(overlays),
+    argument.name = "overlay.names"
+  )
+  source.x <- normalise_mts_source(substitute(x), source = source.x)
 
   plot.call.args <- merge_call_args(
     defaults = list(
@@ -440,7 +450,7 @@ plot_mts_overlay <- function(
       col = col.x,
       lty = lty.x,
       lwd = lwd.x,
-      source = source.x
+      source = source.x$label
     ),
     overrides = plot.args,
     protected = c("x", "columns", "source"),
@@ -459,7 +469,7 @@ plot_mts_overlay <- function(
         col = overlay_graphic_parameter(col.y, overlay.index, default = default_mts_overlay_colour(overlay.index)),
         lty = overlay_graphic_parameter(lty.y, overlay.index, default = overlay.index),
         lwd = overlay_graphic_parameter(lwd.y, overlay.index, default = 1),
-        source = overlay.names[[overlay.index]],
+        source = overlay.names[[overlay.index]]$label,
         object.index = overlay.index
       ),
       overrides = lines.args,
@@ -534,8 +544,11 @@ set_mts_panel <- function(
 #'
 #' Draw a legend for curves recorded by [plot_mts()] and [lines_mts()]. By
 #' default, the legend is grouped by source label and drawn in the first panel
-#' reserved with `blank.panels`; otherwise supply `panel` explicitly. Explicit
-#' `legend` labels override source-derived labels.
+#' reserved with `blank.panels`; otherwise supply `panel` explicitly. For
+#' `by = "source"`, grouping uses the character `source` key, while labels come
+#' from the preserved `source.label` values so plotmath and [nice_text()] labels
+#' can be rendered by [graphics::legend()]. Explicit `legend` labels override
+#' source-derived labels.
 #'
 #' @param plot.info Plot metadata returned by [plot_mts()]. If `NULL`, the most
 #'   recent `plot_mts()` result is used.
@@ -896,6 +909,7 @@ resolve_mts_graphic_parameter <- function(value, n, column.names, parameter.name
 #' @return A data frame suitable for `plot.info$curves`.
 #' @noRd
 make_mts_curve_registry <- function(source,
+                                    source.label,
                                     object.index,
                                     column,
                                     name,
@@ -909,6 +923,7 @@ make_mts_curve_registry <- function(source,
                                     reason) {
   data.frame(
     source = rep(source, length(column)),
+    source.label = I(rep(list(source.label), length(column))),
     object.index = as.integer(rep(object.index, length(column))),
     column = as.integer(column),
     name = as.character(name),
@@ -1055,25 +1070,96 @@ default_mts_overlay_colour <- function(index) {
   colours[((index - 1L) %% length(colours)) + 1L]
 }
 
-#' Return a curve source label
+#' Normalise an mts source label
 #'
-#' Use an explicit source label when supplied, otherwise deparse the input
-#' expression to a readable single-line character label.
+#' Return a stable character key and a preserved display label for an mts source.
 #'
 #' @param expr Unevaluated expression.
 #' @param source Optional explicit source label.
 #'
-#' @return Character scalar source label.
+#' @return A list with character `key` and preserved `label`.
 #' @noRd
-source_label <- function(expr, source = NULL) {
-  if (!is.null(source)) {
-    if (!is.character(source) || length(source) != 1L || is.na(source) || !nzchar(source)) {
-      stop("`source` must be `NULL` or a non-empty character scalar.", call. = FALSE)
-    }
-    return(source)
+normalise_mts_source <- function(expr, source = NULL) {
+  if (is.null(source)) {
+    label <- paste(deparse(expr, width.cutoff = 60), collapse = " ")
+    return(list(key = label, label = label))
   }
 
-  paste(deparse(expr, width.cutoff = 60), collapse = " ")
+  if (is.character(source)) {
+    if (length(source) != 1L || is.na(source) || !nzchar(source)) {
+      stop("`source` must be `NULL`, a non-empty character scalar, or a scalar expression label.", call. = FALSE)
+    }
+    return(list(key = source, label = source))
+  }
+
+  if (is_mts_expression_label(source)) {
+    return(list(key = deparse_mts_label(source), label = source))
+  }
+
+  stop("`source` must be `NULL`, a non-empty character scalar, or a scalar expression label.", call. = FALSE)
+}
+
+#' Normalise multiple mts source labels
+#'
+#' Return one normalised source label per overlay object.
+#'
+#' @param sources Optional supplied source labels.
+#' @param expressions Unevaluated overlay expressions.
+#' @param n Number of overlays.
+#' @param argument.name Name for error messages.
+#'
+#' @return List of normalised source-label objects.
+#' @noRd
+normalise_mts_source_vector <- function(sources,
+                                        expressions,
+                                        n,
+                                        argument.name) {
+  if (is.null(sources)) {
+    return(lapply(expressions, function(expr) normalise_mts_source(expr, source = NULL)))
+  }
+
+  if (is.character(sources)) {
+    if (length(sources) != n || anyNA(sources) || any(!nzchar(sources))) {
+      stop("`", argument.name, "` must be `NULL` or contain one valid source label per overlay.", call. = FALSE)
+    }
+    return(lapply(sources, function(source) normalise_mts_source(NULL, source = source)))
+  }
+
+  if (inherits(sources, "expression")) {
+    if (length(sources) != n) {
+      stop("`", argument.name, "` must be `NULL` or contain one valid source label per overlay.", call. = FALSE)
+    }
+    return(lapply(seq_len(n), function(index) {
+      normalise_mts_source(NULL, source = as.expression(sources[index]))
+    }))
+  }
+
+  stop("`", argument.name, "` must be `NULL` or contain one valid source label per overlay.", call. = FALSE)
+}
+
+#' Check for scalar expression-like labels
+#'
+#' Check whether an object is a scalar expression-like label suitable for
+#' [graphics::legend()].
+#'
+#' @param x Object to check.
+#'
+#' @return Logical scalar.
+#' @noRd
+is_mts_expression_label <- function(x) {
+  inherits(x, "expression") && length(x) == 1L
+}
+
+#' Deparse an mts label
+#'
+#' Deparse a character or expression-like legend label to a stable character key.
+#'
+#' @param x Label object.
+#'
+#' @return Character scalar.
+#' @noRd
+deparse_mts_label <- function(x) {
+  paste(deparse(x, width.cutoff = 60), collapse = " ")
 }
 
 #' Select curves for an mts legend
@@ -1115,7 +1201,7 @@ select_mts_legend_curves <- function(curves, by) {
 #' @noRd
 make_mts_legend_labels <- function(curves, by) {
   if (identical(by, "source")) {
-    return(curves$source)
+    return(combine_mts_legend_labels(curves$source.label))
   }
   if (identical(by, "column")) {
     labels <- curves$panel.name
@@ -1128,6 +1214,31 @@ make_mts_legend_labels <- function(curves, by) {
   missing.names <- is.na(curve.names) | !nzchar(curve.names)
   curve.names[missing.names] <- curves$name[missing.names]
   paste0(curves$source, ": ", curve.names)
+}
+
+#' Combine mts legend labels
+#'
+#' Combine list-column labels from the curve registry into an object suitable
+#' for the `legend` argument of [graphics::legend()].
+#'
+#' @param labels List of scalar character or expression-like labels.
+#'
+#' @return Character vector or expression vector.
+#' @noRd
+combine_mts_legend_labels <- function(labels) {
+  labels <- as.list(labels)
+  expression.label <- vapply(labels, is_mts_expression_label, logical(1))
+
+  if (!any(expression.label)) {
+    return(vapply(labels, as.character, character(1)))
+  }
+
+  as.expression(lapply(labels, function(label) {
+    if (is_mts_expression_label(label)) {
+      return(label[[1L]])
+    }
+    as.character(label)
+  }))
 }
 
 #' Normalise legend line types

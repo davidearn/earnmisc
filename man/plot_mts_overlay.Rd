@@ -41,11 +41,13 @@ plot_mts_overlay(
 defaults are used. If a list, each element is used for the corresponding
 overlay object; otherwise the value is reused for each overlay object.}
 
-\item{source.x}{Optional source label for the base object. If \code{NULL}, a label
-is inferred from the expression supplied for \code{x}.}
+\item{source.x}{Optional source label for the base object. It may be a
+non-empty character scalar or scalar expression-like label. If \code{NULL}, a
+label is inferred from the expression supplied for \code{x}.}
 
-\item{overlay.names}{Optional source labels for overlay objects. If \code{NULL},
-labels are inferred from the expressions supplied in \code{...}.}
+\item{overlay.names}{Optional source labels for overlay objects. A character
+vector or expression vector must contain one label per overlay object. If
+\code{NULL}, labels are inferred from the expressions supplied in \code{...}.}
 
 \item{plot.args}{Additional arguments passed to \code{\link[=plot_mts]{plot_mts()}}. Same-named
 values override base plotting defaults such as \code{col.x}, \code{lty.x}, and

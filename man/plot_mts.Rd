@@ -46,8 +46,10 @@ Reserved panels are blank after \code{plot_mts()} finishes.}
 \item{col, lty, lwd, type}{Graphical parameters for base curves. \code{col}, \code{lty},
 and \code{lwd} may be scalar, vectorised by selected column, or named by column.}
 
-\item{source}{Optional source label for the base curves. If \code{NULL}, a label
-is inferred from the expression supplied for \code{x}.}
+\item{source}{Optional source label for the base curves. It may be a
+non-empty character scalar or a scalar expression-like label, including
+output from \code{\link[=nice_text]{nice_text()}}. If \code{NULL}, a label is inferred from the
+expression supplied for \code{x}.}
 
 \item{axes, frame.plot}{Logical values passed to \code{\link[graphics:plot.default]{graphics::plot.default()}}.}
 
@@ -69,8 +71,10 @@ These helpers provide a coherent base-graphics workflow for \code{mts} overlays:
 call \code{plot_mts()} first, then pass the returned object to \code{lines_mts()}.
 Overlaying onto arbitrary existing \code{\link[stats:plot.ts]{stats::plot.ts()}} or \code{plot.mts()} output
 is not supported because base R does not expose a stable public panel map.
-Curve source labels are recorded in the \code{curves} registry. If \code{source} is
-\code{NULL}, the label is inferred from the expression supplied for \code{x}.
+Curve sources are recorded in the \code{curves} registry. The \code{source} column is
+a character key used for grouping and inspection. The \code{source.label}
+list-column preserves the display label, including expression-like labels
+used by \code{\link[graphics:legend]{graphics::legend()}}.
 }
 \examples{
 x <- stats::ts(cbind(a = 1:10, b = 11:20))
@@ -80,6 +84,9 @@ plot.info <- lines_mts(y, plot.info = plot.info)
 plot.info$curves
 plot.info <- plot_mts(x, source = "baseline")
 plot.info <- lines_mts(y, plot.info = plot.info, source = "comparison")
+legend_mts(plot.info, by = "source", panel = 1)
+plot.info <- plot_mts(x, source = expression(R[0] == 8))
+plot.info <- lines_mts(y, plot.info = plot.info, source = expression(R[0] == 4))
 legend_mts(plot.info, by = "source", panel = 1)
 
 x3 <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))

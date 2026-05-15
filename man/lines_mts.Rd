@@ -34,9 +34,10 @@ recent \code{plot_mts()} result is used.}
 \item{col, lty, lwd}{Overlay graphical parameters. They may be scalar,
 vectorised by selected overlay column, or named by overlay column.}
 
-\item{source}{Optional curve source label. If \code{NULL}, a label is inferred
-from the expression supplied for \code{y}. Repeated direct calls are therefore
-tracked separately when they use different input expressions.}
+\item{source}{Optional curve source label. It may be a non-empty character
+scalar or a scalar expression-like label, including output from
+\code{\link[=nice_text]{nice_text()}}. If \code{NULL}, a label is inferred from the expression supplied
+for \code{y}.}
 
 \item{object.index}{Optional overlay object index for the curve registry.}
 

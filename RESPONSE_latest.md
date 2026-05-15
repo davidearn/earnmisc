@@ -1,27 +1,32 @@
 # Latest Codex Response Summary
 
-- Entry ID: `20260515T200531Z`
-- Recorded: `2026-05-15T20:08:31+00:00`
+- Entry ID: `20260515T205031Z`
+- Recorded: `2026-05-15T20:55:14+00:00`
 
-Fixed source tracking for the `mts` plotting workflow.
+Fixed `source` label handling for `mts` plotting legends.
 
-The collapse happened because `plot_mts()` always recorded base curves as `"base"` and direct `lines_mts()` calls defaulted to `"overlay"`, so `legend_mts(by = "source")` correctly grouped identical labels, but the labels were too coarse.
+Previously, `source` was validated as a non-empty character scalar and stored only in the character `curves$source` column. That rejected `expression(...)` and `nice_text()` labels, and would have lost their class even if accepted.
 
-Now:
-- `plot_mts(x)` infers the source label from the expression for `x`, e.g. `m[[3]]`.
-- `lines_mts(y)` infers the source label from the expression for `y`, e.g. `m[[2]]`.
-- Explicit `source = "label"` overrides the inferred label in both functions.
-- `plot_mts_overlay()` now has `source.x = NULL`; overlay labels come from `overlay.names` if supplied, otherwise from overlay expressions in `...`.
-- Direct repeated `lines_mts()` calls still increment `object.index` automatically: base is `0L`, first overlay is `1L`, second is `2L`, etc.
-- `legend_mts(by = "source")` continues to select the first drawn curve per distinct source in first-seen order, now with useful distinct source labels.
+Now each curve registry row stores:
+- `source`: a stable character key for grouping and inspection.
+- `source.label`: a base R list-column preserving the original display label, including `expression` / `latexexpression` objects.
 
-Tests were added/revised for:
-- inferred labels like `m[[3]]`, `m[[2]]`, `m[[1]]`;
-- explicit `source` overrides;
-- three source legend entries for the motivating pattern;
-- explicit `legend` labels overriding source labels;
-- `plot_mts_overlay()` inferred and explicit overlay labels;
-- sensible `object.index` values.
+`legend_mts(by = "source")` still groups by the character `source` key, but now builds legend labels from `source.label`. If any selected source labels are expression-like, they are combined into an expression vector and passed through to `graphics::legend()`.
+
+`plot_mts_overlay()` now supports:
+- `source.x` as character or scalar expression-like label.
+- `overlay.names` as character vector or expression vector, one label per overlay.
+
+Tests added/revised for:
+- `plot_mts(..., source = expression(...))`
+- `lines_mts(..., source = expression(...))`
+- `lines_mts(..., source = nice_text(...))`
+- `curves$source` remaining character
+- `curves$source.label` preserving expression-like labels
+- `legend_mts(by = "source")` returning expression labels
+- explicit `legend = ...` still overriding source labels
+- invalid source values erroring clearly
+- expression labels through `plot_mts_overlay(source.x = ..., overlay.names = ...)`
 
 Files changed:
 - [R/mts_plot.R](/Users/earn/r/earnmisc/R/mts_plot.R)
@@ -36,4 +41,4 @@ Verification:
 - `make test` passed.
 - `make check` passed with `Status: OK`.
 
-The check printed repository index access warnings due restricted network access, but the package check itself completed cleanly.
+The CRAN/Bioconductor index warnings during check are from restricted network access; the package check itself is clean.

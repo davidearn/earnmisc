@@ -17,6 +17,8 @@ test_that("plot_mts returns plot metadata and base curve registry", {
   expect_identical(plot.info$panel.roles, c("data", "data"))
   expect_equal(nrow(plot.info$curves), 2)
   expect_identical(plot.info$curves$source, c("x", "x"))
+  expect_true("source.label" %in% names(plot.info$curves))
+  expect_identical(plot.info$curves$source.label[[1L]], "x")
   expect_identical(plot.info$curves$object.index, c(0L, 0L))
   expect_true(all(plot.info$curves$drawn))
   expect_true(all(is.na(plot.info$curves$reason)))
@@ -219,6 +221,75 @@ test_that("plot_mts and lines_mts infer and override source labels", {
   expect_identical(unique(labelled$curves$source), c("R0 = 8", "R0 = 4"))
 })
 
+test_that("source labels preserve expression-like legend labels", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  m <- list(
+    stats::ts(cbind(a = 1:10, b = 11:20)),
+    stats::ts(cbind(a = 2:11, b = 10:19)),
+    stats::ts(cbind(a = 3:12, b = 9:18))
+  )
+
+  plot.info <- plot_mts(m[[3]], source = expression(R[0] == 8), blank.panels = 1)
+  plot.info <- lines_mts(m[[2]], plot.info = plot.info, source = expression(R[0] == 4))
+  plot.info <- lines_mts(m[[1]], plot.info = plot.info, source = expression(R[0] == 2))
+
+  expect_type(plot.info$curves$source, "character")
+  expect_true(inherits(plot.info$curves$source.label[[1L]], "expression"))
+  expect_identical(length(plot.info$curves$source.label[[1L]]), 1L)
+  expect_equal(length(unique(plot.info$curves$source)), 3)
+
+  by.source <- legend_mts(plot.info, by = "source")
+  expect_true(inherits(by.source$legend, "expression"))
+  expect_equal(length(by.source$legend), 3)
+
+  explicit <- legend_mts(plot.info, by = "source", legend = c("R0 = 8", "R0 = 4", "R0 = 2"))
+  expect_identical(explicit$legend, c("R0 = 8", "R0 = 4", "R0 = 2"))
+})
+
+test_that("source labels accept nice_text expression-like labels", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  y <- stats::ts(cbind(a = 2:11, b = 10:19))
+  x.label <- nice_text("$R_0 = 8$")
+  y.label <- nice_text("$R_0 = 4$")
+
+  plot.info <- plot_mts(x, source = x.label, blank.panels = 1)
+  plot.info <- lines_mts(y, plot.info = plot.info, source = y.label)
+
+  expect_type(plot.info$curves$source, "character")
+  expect_identical(plot.info$curves$source.label[[1L]], x.label)
+  by.source <- legend_mts(plot.info, by = "source")
+  if (inherits(x.label, "expression") || inherits(y.label, "expression")) {
+    expect_true(inherits(by.source$legend, "expression"))
+  } else {
+    expect_type(by.source$legend, "character")
+  }
+})
+
+test_that("invalid source labels error clearly", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  y <- stats::ts(cbind(a = 2:11, b = 10:19))
+
+  expect_error(plot_mts(x, source = ""), "`source`")
+  expect_error(plot_mts(x, source = c("a", "b")), "`source`")
+  expect_error(plot_mts(x, source = expression(a, b)), "`source`")
+  expect_error(plot_mts(x, source = list("a")), "`source`")
+
+  plot.info <- plot_mts(x)
+  expect_error(lines_mts(y, plot.info = plot.info, source = ""), "`source`")
+  expect_error(lines_mts(y, plot.info = plot.info, source = expression(a, b)), "`source`")
+})
+
 test_that("lines_mts overlays on data panels when blank panels are present", {
   pdf.file <- tempfile(fileext = ".pdf")
   grDevices::pdf(pdf.file)
@@ -284,6 +355,21 @@ test_that("plot_mts_overlay derives and overrides source labels", {
   )
   expect_identical(unique(labelled$curves$source), c("R0 = 8", "R0 = 4", "R0 = 2"))
   expect_identical(unique(labelled$curves$object.index), c(0L, 1L, 2L))
+
+  expression.labels <- plot_mts_overlay(
+    m[[3]],
+    m[[2]],
+    m[[1]],
+    source.x = expression(R[0] == 8),
+    overlay.names = expression(R[0] == 4, R[0] == 2),
+    plot.args = list(blank.panels = 1)
+  )
+  expect_type(expression.labels$curves$source, "character")
+  expect_equal(length(unique(expression.labels$curves$source)), 3)
+  expect_true(inherits(expression.labels$curves$source.label[[1L]], "expression"))
+  by.source <- legend_mts(expression.labels, by = "source")
+  expect_true(inherits(by.source$legend, "expression"))
+  expect_equal(length(by.source$legend), 3)
 })
 
 test_that("plot_mts_overlay passes blank panels through plot.args", {
