@@ -5003,5 +5003,7 @@ Added tests for blank panel layouts, invalid blank panels, overlay mapping with 
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260515T191224Z -->
-_Pending._
+- Recorded: `2026-05-15T19:19:58+00:00`
+- Hash: `e2dea886c615e86e699e83c5b7066a9f9c677312`
+- Subject: Add mts blank panels and legend helpers
 <!-- codex-workflow-commit-end: 20260515T191224Z -->
