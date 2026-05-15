@@ -1,9 +1,9 @@
 # Latest Codex Prompt
 
-- Entry ID: `20260515T191224Z`
-- Recorded: `2026-05-15T19:12:24+00:00`
+- Entry ID: `20260515T200531Z`
+- Recorded: `2026-05-15T20:05:31+00:00`
 
-Please add reserved blank-panel support and `legend_mts()` helpers to the `earnmisc` `mts` plotting workflow.
+Please fix source tracking for the `earnmisc` `mts` plotting helpers so that `legend_mts(by = "source")` distinguishes repeated `lines_mts()` calls.
 
 Read `AGENTS.md` first and follow it closely.
 
@@ -11,362 +11,279 @@ Do not modify `tools/`.
 Do not run `make prompt`, `make response`, or `make record.commit`.
 Do not create Git commits.
 
-## Goal
+## Problem
 
-Extend the existing generic `mts` plotting workflow:
+The new `legend_mts()` function works in many respects, but `by = "source"` currently collapses repeated overlay calls into a single `"overlay"` source.
 
-```r
-plot_mts()
-lines_mts()
-plot_mts_overlay()
-```
-
-so that `plot_mts()` can reserve one or more entire panels for later legends, annotations, or other custom graphics.
-
-Also add:
+Example:
 
 ```r
-set_mts_panel()
-legend_mts()
-```
+library(earnmisc)
+library(gaemr)
 
-Do not add `add_to_mts_panel()` in this task, but design the metadata so that such a helper could be added later. If mentioned in comments or documentation, use the future name `add_to_mts_panel()`, not `with_mts_panel()`.
+sol.2 <- solve_sir(R0 = 2, x.minus = 1, start.level = 0.02)
+sol.4 <- solve_sir(R0 = 4, x.minus = 1, start.level = 0.02)
+sol.8 <- solve_sir(R0 = 8, x.minus = 1, start.level = 0.02)
+m <- list(sol.2$series, sol.4$series, sol.8$series)
 
-## Design summary
-
-The intended workflow is:
-
-```r
-plot.info <- plot_mts(x, blank.panels = 1)
-plot.info <- lines_mts(y, plot.info = plot.info)
-plot.info <- lines_mts(z, plot.info = plot.info)
-legend_mts(plot.info)
-```
-
-or interactively:
-
-```r
-plot_mts(x, blank.panels = 1)
-lines_mts(y)
-lines_mts(z)
-legend_mts()
-```
-
-`blank.panels` reserves full layout cells. Nothing is drawn in those cells by `plot_mts()`, except whatever blank-panel initialisation is needed. Legends or custom annotations are drawn later.
-
-## Add `blank.panels` to `plot_mts()`
-
-Please add an argument to `plot_mts()`:
-
-```r
-blank.panels = NULL
-```
-
-Use this name, not `legend.panel`.
-
-### Behaviour
-
-- `blank.panels = NULL`: current behaviour, no reserved blank panels.
-- `blank.panels` may be `NULL` or a positive integer vector.
-- If `blank.panels` is supplied, reserve those layout cells for later legend/annotation use.
-- Reserved panels should be blank after `plot_mts()` finishes.
-- Data series should be plotted in all non-reserved panels.
-- Blank panels are panel indices in the full layout, not data-column indices.
-
-For example, if `x` has three selected series:
-
-```r
-plot_mts(x, blank.panels = 1)
-```
-
-should create four layout cells, reserve panel 1, and plot the three series in panels 2, 3, and 4.
-
-```r
-plot_mts(x, blank.panels = 2)
-```
-
-should reserve panel 2 and plot data in panels 1, 3, and 4.
-
-```r
-plot_mts(x, blank.panels = 4)
-```
-
-should reserve the final panel.
-
-If `x` has three selected series and:
-
-```r
-plot_mts(x, blank.panels = c(1, 4))
-```
-
-then five layout cells should be created, panels 1 and 4 should be blank, and the three data series should be plotted in panels 2, 3, and 5.
-
-The total number of layout cells should be:
-
-```r
-number_of_selected_series + length(blank.panels)
-```
-
-when `blank.panels` is not `NULL`.
-
-Validate that `blank.panels` contains unique positive integers within the available full layout cell range. For example, with three selected series and two blank panels, valid blank panel indices are integers from 1 through 5.
-
-### Metadata
-
-Update the returned `plot.info` object to include:
-
-```r
-blank.panels
-data.panels
-panel.roles
-panels
-```
-
-Suggested meanings:
-
-- `blank.panels`: integer vector of reserved blank panel indices, or `NULL`;
-- `data.panels`: integer vector mapping plotted data columns to layout panel indices;
-- `panel.roles`: character vector of length equal to the number of layout cells, with values such as `"data"` and `"blank"`;
-- `panels`: a list or data frame containing panel metadata, including `mfg`, `usr`, `xlim`, `ylim`, and any other information needed by `lines_mts()`, `set_mts_panel()`, `legend_mts()`, and a future `add_to_mts_panel()`.
-
-Please update existing metadata consistently so `lines_mts()` overlays onto the correct data panels, skipping reserved blank panels.
-
-The `curves` registry should record the correct `panel.index` and `panel.name` for each base and overlay curve.
-
-## Add `set_mts_panel()`
-
-Please implement and export:
-
-```r
-set_mts_panel <- function(
-  panel,
-  plot.info = NULL,
-  xlim = c(0, 1),
-  ylim = c(0, 1),
-  axes = FALSE,
-  xaxs = "i",
-  yaxs = "i",
-  ...
+plot_mts(
+  m[[3]],
+  las = 1,
+  bty = "L",
+  xlim = c(-1, 2),
+  lwd = 3,
+  col = oi.black,
+  blank.panels = c(2)
 )
+lines_mts(m[[2]], lty = 1, lwd = 2, col = oi.reddish_purple)
+lines_mts(m[[1]], lty = 1, lwd = 2, col = oi.sky_blue)
+legend_mts(by = "source")
 ```
 
-### Behaviour
+The legend currently has two entries:
 
-`set_mts_panel()` should:
+```text
+base
+overlay
+```
 
-- use `plot.info` if supplied;
-- otherwise use the most recent stored `plot_mts()` info object;
-- validate that `panel` is a valid panel index;
-- set the graphics device to the requested panel using stored panel metadata;
-- call `plot.new()`;
-- call `plot.window(xlim = xlim, ylim = ylim, axes = axes, xaxs = xaxs, yaxs = yaxs, ...)`;
-- invisibly return metadata for the selected panel.
+This is wrong. There should be three entries corresponding to the three `mts` objects:
 
-This helper is intended for blank/reserved panels such as legend or annotation panels. Document clearly that it clears/reinitialises the selected panel. It is not intended for adding annotations on top of an already-drawn data panel, because `plot.new()` will clear that panel.
+```text
+m[[3]]
+m[[2]]
+m[[1]]
+```
 
-The default coordinate system should be `xlim = c(0, 1)`, `ylim = c(0, 1)` so that legends and text can be placed easily.
+or user-supplied source labels if provided.
 
-All default `plot.window()` arguments listed above should be user-overridable through formal arguments or `...`.
+The underlying issue is that all `lines_mts()` calls are apparently being recorded with the same source label, such as `"overlay"`, so the curve registry cannot distinguish overlay objects.
 
-## Add `legend_mts()`
+## Required design
 
-Please implement and export:
+Each call to `plot_mts()` and `lines_mts()` should record a distinct source label in `plot.info$curves`.
+
+### `plot_mts()`
+
+Add or revise an argument:
 
 ```r
-legend_mts <- function(
-  plot.info = NULL,
-  panel = NULL,
-  by = c("source", "curve", "column"),
-  legend = NULL,
-  x = "center",
-  inset = 0,
-  bty = "n",
-  ...
-)
+source = NULL
 ```
 
-### Behaviour
+Behaviour:
 
-`legend_mts()` should:
+- If `source` is supplied, use it as the source label for all base curves from `x`.
+- If `source = NULL`, use the unevaluated expression supplied for `x`, converted to a readable character label.
 
-- use `plot.info` if supplied;
-- otherwise use the most recent stored `plot_mts()` info object;
-- use `panel` if supplied;
-- otherwise use the first blank panel in `plot.info$blank.panels`;
-- error clearly if no panel is supplied and `plot.info$blank.panels` is `NULL` or empty;
-- use `set_mts_panel()` to initialise the legend panel;
-- construct a sensible default legend from `plot.info$curves`;
-- call `graphics::legend()`;
-- pass `...` to `graphics::legend()`;
-- invisibly return a useful legend info object.
-
-### Default legend construction
-
-Use drawn curves only:
+For example:
 
 ```r
-plot.info$curves[plot.info$curves$drawn, ]
+plot_mts(m[[3]])
 ```
 
-Default grouping:
+should record source:
+
+```text
+m[[3]]
+```
+
+and:
 
 ```r
-by = "source"
+plot_mts(m[[3]], source = "R0 = 8")
 ```
 
-Use this policy:
+should record source:
 
-- `by = "source"`: one legend entry per curve source, using the first drawn curve for each source;
-- `by = "column"`: one legend entry per column/panel name, using the first drawn curve for each column/panel;
-- `by = "curve"`: one legend entry per drawn curve.
+```text
+R0 = 8
+```
 
-Default legend labels:
-- If `legend` is supplied, use it directly.
-- If `legend = NULL`, construct labels from the selected grouping.
-- For `by = "source"`, use the `source` column.
-- For `by = "column"`, use `panel.name` or `name`, whichever is clearer and available.
-- For `by = "curve"`, use a readable combination of source and curve/panel name, for example `"overlay1: I"`.
+### `lines_mts()`
 
-Default graphical parameters:
-- Use `col`, `lty`, and `lwd` from the selected rows of `plot.info$curves`.
-- Allow the user to override them through `...` if they explicitly pass `col`, `lty`, or `lwd` to `legend_mts()`.
-
-### Return value
-
-`legend_mts()` should invisibly return a list with useful information, including:
+Keep or revise the existing argument:
 
 ```r
-panel
-by
-legend
-col
-lty
-lwd
-curves
-legend.result
+source = NULL
 ```
 
-where `legend.result` is the invisible return from `graphics::legend()` if available.
+Behaviour:
 
-## Update `lines_mts()` and `plot_mts_overlay()` as needed
+- If `source` is supplied, use it as the source label for all curves from that `lines_mts()` call.
+- If `source = NULL`, use the unevaluated expression supplied for `y`, converted to a readable character label.
 
-Please update these functions so they remain compatible with reserved blank panels.
+For example:
 
-In particular:
+```r
+lines_mts(m[[2]])
+```
 
-- `lines_mts()` must overlay onto the correct data panel even when blank panels are present.
-- Repeated `lines_mts()` calls should continue to update and store the accumulated `plot.info`.
-- `plot_mts_overlay()` should allow `blank.panels` to be passed through to `plot_mts()` via `plot.args`.
-- `plot_mts_overlay()` should return final `plot.info` with blank-panel metadata and complete curve registry.
+should record source:
 
-Do not draw the legend automatically in `plot_mts_overlay()` in this task.
+```text
+m[[2]]
+```
+
+and:
+
+```r
+lines_mts(m[[2]], source = "R0 = 4")
+```
+
+should record source:
+
+```text
+R0 = 4
+```
+
+Each `lines_mts()` call must preserve its own source label in the curve registry.
+
+Do not default repeated direct `lines_mts()` calls to the same label `"overlay"`.
+
+### Source-label helper
+
+Use a small internal helper if useful, for example:
+
+```r
+source_label <- function(expr, source = NULL)
+```
+
+or similar.
+
+A base R approach is sufficient. For example, use `deparse1(substitute(x))` or a compatibility equivalent if needed.
+
+Document any internal helper with roxygen2 comments, following `AGENTS.md`.
+
+### Source labels and legend labels
+
+`plot.info$curves$source` should be a character vector.
+
+If users want mathematical legend labels, they can still pass explicit labels to `legend_mts(legend = ...)`, or later we can consider allowing expression-valued source labels. For this fix, keep `source` as a character label unless the existing code already supports expression labels safely.
+
+## `legend_mts(by = "source")`
+
+Revise `legend_mts(by = "source")` so that it creates one legend entry per distinct source in first-seen order, using drawn curves only.
+
+For the example above, after:
+
+```r
+plot_mts(m[[3]], ...)
+lines_mts(m[[2]], ...)
+lines_mts(m[[1]], ...)
+legend_mts(by = "source")
+```
+
+the default legend labels should be:
+
+```text
+m[[3]]
+m[[2]]
+m[[1]]
+```
+
+and the graphical parameters should correspond to the first drawn curve for each source.
+
+If users supply explicit legend labels:
+
+```r
+legend_mts(by = "source", legend = c("R0 = 8", "R0 = 4", "R0 = 2"))
+```
+
+those labels should override the source labels.
+
+## `object.index`
+
+Please also make sure `object.index` remains useful.
+
+Suggested policy:
+
+- base curves from `plot_mts()`: `object.index = 0L`;
+- each direct `lines_mts()` call increments the object index if `object.index = NULL`;
+- `plot_mts_overlay()` continues to set object indices explicitly:
+  - base object: `0L`;
+  - first overlay: `1L`;
+  - second overlay: `2L`;
+  - etc.
+
+This is important so future tools can distinguish both source labels and object order.
+
+If implementing automatic incrementing for direct `lines_mts()` calls is awkward, at minimum ensure repeated calls have distinct `source` labels. But the preferred design is to keep `object.index` distinct as well.
+
+## `plot_mts_overlay()`
+
+Update `plot_mts_overlay()` as needed so source labels remain good there too.
+
+Desired behaviour:
+
+- If `overlay.names` is supplied, use those as overlay source labels.
+- If `overlay.names` is not supplied, use readable labels derived from the overlay expressions in `...`, where possible.
+- The base object source should come from `source.x` if you add such an argument, or from the expression for `x` if not supplied.
+
+Please use a definitive API. If a new explicit base-source argument is needed, use:
+
+```r
+source.x = NULL
+```
+
+and document it.
+
+For overlay source labels, continue to support:
+
+```r
+overlay.names = NULL
+```
+
+where `NULL` means derive labels from the overlay expressions.
+
+## Tests
+
+Add or revise tests for:
+
+- `plot_mts(m[[3]])` records source `"m[[3]]"` or the exact readable expression produced by the implemented helper.
+- `lines_mts(m[[2]])` records source `"m[[2]]"` or the exact readable expression produced by the helper.
+- repeated direct `lines_mts()` calls produce distinct source values in `plot.info$curves`.
+- `legend_mts(by = "source")` selects one entry per distinct source, in first-seen order.
+- the motivating example pattern gives three source legend entries, not two.
+- explicit `source` in `plot_mts()` overrides the default source label.
+- explicit `source` in `lines_mts()` overrides the default source label.
+- explicit `legend` in `legend_mts()` overrides source-derived legend labels.
+- `plot_mts_overlay()` preserves explicit `overlay.names`.
+- `plot_mts_overlay()` derives overlay source labels from expressions when `overlay.names = NULL`.
+- `object.index` values are still sensible for base and overlay curves.
+
+Use temporary graphics devices and avoid image comparison.
 
 ## Documentation
 
-Add or update roxygen2 documentation for:
+Update roxygen2 documentation for:
 
 ```r
 plot_mts()
 lines_mts()
 plot_mts_overlay()
-set_mts_panel()
 legend_mts()
 ```
 
 Documentation should explain:
 
-- `blank.panels` reserves one or more full layout cells at plot time;
-- `legend_mts()` draws a legend later using the accumulated curve registry;
-- by default, `legend_mts()` uses the first blank panel;
-- `set_mts_panel()` reinitialises a panel with a simple coordinate system and is intended mainly for reserved panels;
-- `set_mts_panel()` clears the selected panel;
-- `lines_mts()` does not support arbitrary base `plot.mts()` output;
-- the `curves` registry is designed to support legends and later inspection.
+- `source = NULL` means the source label is inferred from the input expression;
+- `source = "label"` lets the user override the inferred label;
+- `legend_mts(by = "source")` groups by these source labels;
+- repeated `lines_mts()` calls are tracked separately;
+- users can override legend labels directly with the `legend` argument to `legend_mts()`.
 
 Use Canadian spelling.
 
-Examples should be lightweight and check-friendly. Include an example like:
+Examples should include:
 
 ```r
-x <- ts(cbind(a = 1:10, b = 11:20, c = 21:30))
-y <- ts(cbind(a = 2:11, b = 10:19, c = 20:29))
-
-plot.info <- plot_mts(x, blank.panels = 1)
-plot.info <- lines_mts(y, plot.info = plot.info, source = "overlay")
-legend_mts(plot.info)
+plot.info <- plot_mts(x, source = "baseline")
+plot.info <- lines_mts(y, plot.info = plot.info, source = "comparison")
+legend_mts(plot.info, by = "source")
 ```
 
-Also include an example showing multiple blank panels, such as:
-
-```r
-plot.info <- plot_mts(x, blank.panels = c(1, 4))
-set_mts_panel(4, plot.info)
-text(0.5, 0.5, "Notes")
-```
-
-## Tests
-
-Add tests without brittle image comparison. Use temporary graphics devices such as `pdf(tempfile())` and close them reliably.
-
-Test:
-
-### `plot_mts()` with `blank.panels`
-
-- `blank.panels = NULL` preserves existing behaviour.
-- with three selected series and `blank.panels = 1`, the layout has four panels and panel 1 is blank.
-- with `blank.panels = 2`, panel 2 is blank and data panels are 1, 3, 4.
-- with `blank.panels = 4`, panel 4 is blank.
-- with `blank.panels = c(1, 4)`, there are five panels, panels 1 and 4 are blank, and data panels are 2, 3, 5.
-- invalid `blank.panels` values error clearly, including duplicates, zero, negative values, non-integers, and out-of-range values.
-- base curves record correct data panel indices when blank panels are reserved.
-
-### `lines_mts()`
-
-- overlays use the correct data panels when blank panels are present.
-- curve registry entries for overlays record correct panel indices.
-- repeated overlays still accumulate correctly.
-
-### `set_mts_panel()`
-
-- works with explicit `plot.info`.
-- works with stored most-recent plot info.
-- errors clearly for invalid panel.
-- returns panel metadata invisibly.
-- accepts overridden `xlim`, `ylim`, `axes`, `xaxs`, `yaxs`.
-
-### `legend_mts()`
-
-- uses the first `plot.info$blank.panels` panel by default.
-- accepts explicit `panel`.
-- errors clearly when no blank panel is available and no panel is supplied.
-- constructs default legend entries by source.
-- supports `by = "column"` and `by = "curve"`.
-- allows explicit `legend` labels.
-- returns a useful legend info object.
-- passes graphical parameters to `graphics::legend()` without duplicate-argument errors.
-
-Avoid testing exact rendered output.
-
-## Internal helpers
-
-It is fine to add documented non-exported helpers such as:
-
-```r
-resolve_blank_panels()
-mts_panel_roles()
-select_mts_legend_curves()
-make_mts_legend_args()
-```
-
-Document non-exported helpers with roxygen2 comments, following `AGENTS.md`.
-
-Use base R only.
-
-## Package docs
-
-Update package-level documentation to mention reserved blank panels and `legend_mts()`.
-
-Regenerate documentation and NAMESPACE.
+and, if practical, an example showing inferred source labels.
 
 ## Verification
 
@@ -379,13 +296,12 @@ make check
 ```
 
 Please report:
-1. How `blank.panels` works in `plot_mts()`.
-2. How data panels are assigned when blank panels are reserved.
-3. How `set_mts_panel()` works and what its intended limitations are.
-4. How `legend_mts()` constructs default legends.
-5. How legend grouping by source, column, and curve works.
-6. How the curve registry supports legend construction.
-7. What files changed.
-8. What tests were added or revised.
-9. What verification commands were run and their results.
-10. Any limitations or TODOs.
+1. What caused repeated overlays to collapse into one legend entry.
+2. How source labels are now inferred.
+3. How explicit source labels override inferred labels.
+4. How `legend_mts(by = "source")` now chooses entries.
+5. How `object.index` is handled for repeated direct overlays.
+6. What files changed.
+7. What tests were added or revised.
+8. What verification commands were run and their results.
+9. Any limitations or TODOs.

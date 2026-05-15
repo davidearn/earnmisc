@@ -40,8 +40,9 @@ labels, graphical parameters, selected curves, and the result from
 }
 \description{
 Draw a legend for curves recorded by \code{\link[=plot_mts]{plot_mts()}} and \code{\link[=lines_mts]{lines_mts()}}. By
-default, the legend is drawn in the first panel reserved with
-\code{blank.panels}; otherwise supply \code{panel} explicitly.
+default, the legend is grouped by source label and drawn in the first panel
+reserved with \code{blank.panels}; otherwise supply \code{panel} explicitly. Explicit
+\code{legend} labels override source-derived labels.
 }
 \examples{
 x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))

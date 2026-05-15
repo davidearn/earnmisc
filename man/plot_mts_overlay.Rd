@@ -17,6 +17,7 @@ plot_mts_overlay(
   col.y = NULL,
   lty.y = NULL,
   lwd.y = NULL,
+  source.x = NULL,
   overlay.names = NULL,
   plot.args = list(),
   lines.args = list()
@@ -40,11 +41,16 @@ plot_mts_overlay(
 defaults are used. If a list, each element is used for the corresponding
 overlay object; otherwise the value is reused for each overlay object.}
 
-\item{overlay.names}{Optional source labels for overlay objects.}
+\item{source.x}{Optional source label for the base object. If \code{NULL}, a label
+is inferred from the expression supplied for \code{x}.}
+
+\item{overlay.names}{Optional source labels for overlay objects. If \code{NULL},
+labels are inferred from the expressions supplied in \code{...}.}
 
 \item{plot.args}{Additional arguments passed to \code{\link[=plot_mts]{plot_mts()}}. Same-named
 values override base plotting defaults such as \code{col.x}, \code{lty.x}, and
-\code{lwd.x}. Core arguments \code{x} and \code{columns} cannot be supplied here.}
+\code{lwd.x}. Core arguments \code{x}, \code{columns}, and \code{source} cannot be supplied
+here.}
 
 \item{lines.args}{Additional arguments passed to \code{\link[=lines_mts]{lines_mts()}}. Same-named
 values override overlay defaults such as \code{col.y}, \code{lty.y}, and \code{lwd.y}.
@@ -56,7 +62,8 @@ Invisibly returns the final updated plot-info object.
 }
 \description{
 Convenience wrapper that calls \code{\link[=plot_mts]{plot_mts()}} once and \code{\link[=lines_mts]{lines_mts()}} once for
-each overlay object supplied in \code{...}.
+each overlay object supplied in \code{...}. Source labels are inferred from the
+input expressions unless \code{source.x} or \code{overlay.names} are supplied.
 }
 \examples{
 x <- stats::ts(cbind(a = 1:10, b = 11:20))
@@ -65,5 +72,10 @@ z <- stats::ts(cbind(a = 3:12, b = 9:18))
 plot.info <- plot_mts_overlay(x, y)
 plot.info <- plot_mts_overlay(x, y, z)
 plot.info$curves
+plot.info <- plot_mts_overlay(
+  x, y, z,
+  source.x = "baseline",
+  overlay.names = c("comparison 1", "comparison 2")
+)
 
 }

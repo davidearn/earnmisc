@@ -34,7 +34,9 @@ recent \code{plot_mts()} result is used.}
 \item{col, lty, lwd}{Overlay graphical parameters. They may be scalar,
 vectorised by selected overlay column, or named by overlay column.}
 
-\item{source}{Optional curve source label.}
+\item{source}{Optional curve source label. If \code{NULL}, a label is inferred
+from the expression supplied for \code{y}. Repeated direct calls are therefore
+tracked separately when they use different input expressions.}
 
 \item{object.index}{Optional overlay object index for the curve registry.}
 
@@ -49,6 +51,9 @@ Overlay selected columns from an \code{mts}-like object onto panels created by
 \code{\link[=plot_mts]{plot_mts()}}. This function is not intended for arbitrary existing
 \code{plot.mts()} output. When \code{\link[=plot_mts]{plot_mts()}} has reserved blank panels,
 \code{lines_mts()} overlays on the correct data panels and skips reserved panels.
+If \code{source} is \code{NULL}, the source label is inferred from the expression
+supplied for \code{y}, so repeated direct calls with different inputs remain
+distinct in \code{\link[=legend_mts]{legend_mts()}} when \code{by = "source"}.
 }
 \examples{
 x <- stats::ts(cbind(a = 1:10, b = 11:20))

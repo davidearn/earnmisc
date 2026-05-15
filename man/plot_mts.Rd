@@ -17,6 +17,7 @@ plot_mts(
   lty = 1,
   lwd = 1,
   type = "l",
+  source = NULL,
   axes = TRUE,
   frame.plot = TRUE,
   mar = NULL,
@@ -45,6 +46,9 @@ Reserved panels are blank after \code{plot_mts()} finishes.}
 \item{col, lty, lwd, type}{Graphical parameters for base curves. \code{col}, \code{lty},
 and \code{lwd} may be scalar, vectorised by selected column, or named by column.}
 
+\item{source}{Optional source label for the base curves. If \code{NULL}, a label
+is inferred from the expression supplied for \code{x}.}
+
 \item{axes, frame.plot}{Logical values passed to \code{\link[graphics:plot.default]{graphics::plot.default()}}.}
 
 \item{mar, oma}{Optional margin settings passed to \code{\link[graphics:par]{graphics::par()}}.}
@@ -65,6 +69,8 @@ These helpers provide a coherent base-graphics workflow for \code{mts} overlays:
 call \code{plot_mts()} first, then pass the returned object to \code{lines_mts()}.
 Overlaying onto arbitrary existing \code{\link[stats:plot.ts]{stats::plot.ts()}} or \code{plot.mts()} output
 is not supported because base R does not expose a stable public panel map.
+Curve source labels are recorded in the \code{curves} registry. If \code{source} is
+\code{NULL}, the label is inferred from the expression supplied for \code{x}.
 }
 \examples{
 x <- stats::ts(cbind(a = 1:10, b = 11:20))
@@ -72,6 +78,9 @@ y <- stats::ts(cbind(a = 2:11, b = 10:19))
 plot.info <- plot_mts(x)
 plot.info <- lines_mts(y, plot.info = plot.info)
 plot.info$curves
+plot.info <- plot_mts(x, source = "baseline")
+plot.info <- lines_mts(y, plot.info = plot.info, source = "comparison")
+legend_mts(plot.info, by = "source", panel = 1)
 
 x3 <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
 y3 <- stats::ts(cbind(a = 2:11, b = 10:19, c = 20:29))

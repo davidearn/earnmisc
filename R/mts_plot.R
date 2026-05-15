@@ -10,6 +10,8 @@ mts_plot_store$last <- NULL
 #' call `plot_mts()` first, then pass the returned object to `lines_mts()`.
 #' Overlaying onto arbitrary existing [stats::plot.ts()] or `plot.mts()` output
 #' is not supported because base R does not expose a stable public panel map.
+#' Curve source labels are recorded in the `curves` registry. If `source` is
+#' `NULL`, the label is inferred from the expression supplied for `x`.
 #'
 #' @param x Multivariate time-series object, or an object safely coercible to a
 #'   matrix with a regular sequence time index.
@@ -23,6 +25,8 @@ mts_plot_store$last <- NULL
 #' @param ylab Optional y-axis label. If `NULL`, each panel uses its column name.
 #' @param col,lty,lwd,type Graphical parameters for base curves. `col`, `lty`,
 #'   and `lwd` may be scalar, vectorised by selected column, or named by column.
+#' @param source Optional source label for the base curves. If `NULL`, a label
+#'   is inferred from the expression supplied for `x`.
 #' @param axes,frame.plot Logical values passed to [graphics::plot.default()].
 #' @param mar,oma Optional margin settings passed to [graphics::par()].
 #' @param ... Additional arguments passed to [graphics::plot.default()].
@@ -37,6 +41,9 @@ mts_plot_store$last <- NULL
 #' plot.info <- plot_mts(x)
 #' plot.info <- lines_mts(y, plot.info = plot.info)
 #' plot.info$curves
+#' plot.info <- plot_mts(x, source = "baseline")
+#' plot.info <- lines_mts(y, plot.info = plot.info, source = "comparison")
+#' legend_mts(plot.info, by = "source", panel = 1)
 #'
 #' x3 <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
 #' y3 <- stats::ts(cbind(a = 2:11, b = 10:19, c = 20:29))
@@ -62,12 +69,14 @@ plot_mts <- function(
   lty = 1,
   lwd = 1,
   type = "l",
+  source = NULL,
   axes = TRUE,
   frame.plot = TRUE,
   mar = NULL,
   oma = NULL,
   ...
 ) {
+  source <- source_label(substitute(x), source = source)
   mts.data <- as_mts_matrix(x)
   selected.columns <- resolve_mts_columns(
     columns,
@@ -146,7 +155,7 @@ plot_mts <- function(
   }
 
   curves <- make_mts_curve_registry(
-    source = "base",
+    source = source,
     object.index = 0L,
     column = selected.columns,
     name = selected.names,
@@ -202,6 +211,9 @@ plot_mts <- function(
 #' [plot_mts()]. This function is not intended for arbitrary existing
 #' `plot.mts()` output. When [plot_mts()] has reserved blank panels,
 #' `lines_mts()` overlays on the correct data panels and skips reserved panels.
+#' If `source` is `NULL`, the source label is inferred from the expression
+#' supplied for `y`, so repeated direct calls with different inputs remain
+#' distinct in [legend_mts()] when `by = "source"`.
 #'
 #' @param y Overlay multivariate time-series object.
 #' @param plot.info Plot metadata returned by [plot_mts()]. If `NULL`, the most
@@ -212,7 +224,9 @@ plot_mts <- function(
 #'   `"error"`, or `"ignore"`.
 #' @param col,lty,lwd Overlay graphical parameters. They may be scalar,
 #'   vectorised by selected overlay column, or named by overlay column.
-#' @param source Optional curve source label.
+#' @param source Optional curve source label. If `NULL`, a label is inferred
+#'   from the expression supplied for `y`. Repeated direct calls are therefore
+#'   tracked separately when they use different input expressions.
 #' @param object.index Optional overlay object index for the curve registry.
 #' @param ... Additional arguments passed to [graphics::lines()].
 #'
@@ -239,6 +253,7 @@ lines_mts <- function(
   object.index = NULL,
   ...
 ) {
+  source <- source_label(substitute(y), source = source)
   if (is.null(plot.info)) {
     plot.info <- last_mts_plot_info()
     if (is.null(plot.info)) {
@@ -284,9 +299,6 @@ lines_mts <- function(
     }
   }
 
-  if (is.null(source)) {
-    source <- "overlay"
-  }
   if (is.null(object.index)) {
     object.index <- next_mts_object_index(plot.info)
   }
@@ -337,7 +349,8 @@ lines_mts <- function(
 #' Plot an mts object with one or more overlays
 #'
 #' Convenience wrapper that calls [plot_mts()] once and [lines_mts()] once for
-#' each overlay object supplied in `...`.
+#' each overlay object supplied in `...`. Source labels are inferred from the
+#' input expressions unless `source.x` or `overlay.names` are supplied.
 #'
 #' @param x Base multivariate time-series object.
 #' @param ... One or more overlay multivariate time-series objects.
@@ -349,10 +362,14 @@ lines_mts <- function(
 #' @param col.y,lty.y,lwd.y Overlay graphical parameters. If `NULL`, simple
 #'   defaults are used. If a list, each element is used for the corresponding
 #'   overlay object; otherwise the value is reused for each overlay object.
-#' @param overlay.names Optional source labels for overlay objects.
+#' @param source.x Optional source label for the base object. If `NULL`, a label
+#'   is inferred from the expression supplied for `x`.
+#' @param overlay.names Optional source labels for overlay objects. If `NULL`,
+#'   labels are inferred from the expressions supplied in `...`.
 #' @param plot.args Additional arguments passed to [plot_mts()]. Same-named
 #'   values override base plotting defaults such as `col.x`, `lty.x`, and
-#'   `lwd.x`. Core arguments `x` and `columns` cannot be supplied here.
+#'   `lwd.x`. Core arguments `x`, `columns`, and `source` cannot be supplied
+#'   here.
 #' @param lines.args Additional arguments passed to [lines_mts()]. Same-named
 #'   values override overlay defaults such as `col.y`, `lty.y`, and `lwd.y`.
 #'   Core arguments `y`, `plot.info`, `columns`, `source`, and `object.index`
@@ -367,6 +384,11 @@ lines_mts <- function(
 #' plot.info <- plot_mts_overlay(x, y)
 #' plot.info <- plot_mts_overlay(x, y, z)
 #' plot.info$curves
+#' plot.info <- plot_mts_overlay(
+#'   x, y, z,
+#'   source.x = "baseline",
+#'   overlay.names = c("comparison 1", "comparison 2")
+#' )
 #'
 #' @export
 plot_mts_overlay <- function(
@@ -382,10 +404,12 @@ plot_mts_overlay <- function(
   col.y = NULL,
   lty.y = NULL,
   lwd.y = NULL,
+  source.x = NULL,
   overlay.names = NULL,
   plot.args = list(),
   lines.args = list()
 ) {
+  overlay.expressions <- as.list(substitute(list(...)))[-1L]
   overlays <- list(...)
 
   if (length(overlays) == 0L) {
@@ -405,8 +429,9 @@ plot_mts_overlay <- function(
   match <- match.arg(match)
   unmatched <- match.arg(unmatched)
   if (is.null(overlay.names)) {
-    overlay.names <- paste0("overlay", seq_along(overlays))
+    overlay.names <- vapply(overlay.expressions, source_label, source = NULL, FUN.VALUE = character(1))
   }
+  source.x <- source_label(substitute(x), source = source.x)
 
   plot.call.args <- merge_call_args(
     defaults = list(
@@ -414,10 +439,11 @@ plot_mts_overlay <- function(
       columns = columns.x,
       col = col.x,
       lty = lty.x,
-      lwd = lwd.x
+      lwd = lwd.x,
+      source = source.x
     ),
     overrides = plot.args,
-    protected = c("x", "columns"),
+    protected = c("x", "columns", "source"),
     argument.name = "plot.args"
   )
   plot.info <- do.call(plot_mts, plot.call.args)
@@ -507,8 +533,9 @@ set_mts_panel <- function(
 #' Add a legend to an mts plot panel
 #'
 #' Draw a legend for curves recorded by [plot_mts()] and [lines_mts()]. By
-#' default, the legend is drawn in the first panel reserved with
-#' `blank.panels`; otherwise supply `panel` explicitly.
+#' default, the legend is grouped by source label and drawn in the first panel
+#' reserved with `blank.panels`; otherwise supply `panel` explicitly. Explicit
+#' `legend` labels override source-derived labels.
 #'
 #' @param plot.info Plot metadata returned by [plot_mts()]. If `NULL`, the most
 #'   recent `plot_mts()` result is used.
@@ -1026,6 +1053,27 @@ overlay_graphic_parameter <- function(x, index, default) {
 default_mts_overlay_colour <- function(index) {
   colours <- c("red", "blue", "darkgreen", "purple", "orange", "brown", "magenta", "cyan4")
   colours[((index - 1L) %% length(colours)) + 1L]
+}
+
+#' Return a curve source label
+#'
+#' Use an explicit source label when supplied, otherwise deparse the input
+#' expression to a readable single-line character label.
+#'
+#' @param expr Unevaluated expression.
+#' @param source Optional explicit source label.
+#'
+#' @return Character scalar source label.
+#' @noRd
+source_label <- function(expr, source = NULL) {
+  if (!is.null(source)) {
+    if (!is.character(source) || length(source) != 1L || is.na(source) || !nzchar(source)) {
+      stop("`source` must be `NULL` or a non-empty character scalar.", call. = FALSE)
+    }
+    return(source)
+  }
+
+  paste(deparse(expr, width.cutoff = 60), collapse = " ")
 }
 
 #' Select curves for an mts legend

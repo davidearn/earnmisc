@@ -16,7 +16,7 @@ test_that("plot_mts returns plot metadata and base curve registry", {
   expect_identical(plot.info$data.panels, 1:2)
   expect_identical(plot.info$panel.roles, c("data", "data"))
   expect_equal(nrow(plot.info$curves), 2)
-  expect_identical(plot.info$curves$source, c("base", "base"))
+  expect_identical(plot.info$curves$source, c("x", "x"))
   expect_identical(plot.info$curves$object.index, c(0L, 0L))
   expect_true(all(plot.info$curves$drawn))
   expect_true(all(is.na(plot.info$curves$reason)))
@@ -98,13 +98,13 @@ test_that("lines_mts matches columns by name and position", {
 
   plot.info <- plot_mts(x)
   by.name <- lines_mts(y, plot.info = plot.info)
-  overlay.rows <- by.name$curves[by.name$curves$source == "overlay", ]
+  overlay.rows <- by.name$curves[by.name$curves$object.index == 1L, ]
   expect_identical(overlay.rows$name, c("b", "a"))
   expect_identical(overlay.rows$panel.index, c(2L, 1L))
 
   plot.info <- plot_mts(x)
   by.position <- lines_mts(y, plot.info = plot.info, match = "position")
-  overlay.rows <- by.position$curves[by.position$curves$source == "overlay", ]
+  overlay.rows <- by.position$curves[by.position$curves$object.index == 1L, ]
   expect_identical(overlay.rows$panel.index, c(1L, 2L))
 })
 
@@ -118,7 +118,7 @@ test_that("lines_mts handles unmatched columns according to policy", {
 
   plot.info <- plot_mts(x)
   expect_warning(warned <- lines_mts(y, plot.info = plot.info), "Unmatched mts column")
-  overlay.rows <- warned$curves[warned$curves$source == "overlay", ]
+  overlay.rows <- warned$curves[warned$curves$object.index == 1L, ]
   expect_identical(overlay.rows$drawn, c(TRUE, FALSE))
   expect_identical(overlay.rows$reason, c(NA_character_, "unmatched"))
 
@@ -127,7 +127,7 @@ test_that("lines_mts handles unmatched columns according to policy", {
 
   plot.info <- plot_mts(x)
   expect_silent(ignored <- lines_mts(y, plot.info = plot.info, unmatched = "ignore"))
-  overlay.rows <- ignored$curves[ignored$curves$source == "overlay", ]
+  overlay.rows <- ignored$curves[ignored$curves$object.index == 1L, ]
   expect_identical(overlay.rows$drawn, c(TRUE, FALSE))
 })
 
@@ -141,7 +141,7 @@ test_that("lines_mts supports column restriction and graphical parameters", {
 
   plot.info <- plot_mts(x)
   restricted <- lines_mts(y, plot.info = plot.info, columns = "b", col = "red", lty = 2, lwd = 3)
-  overlay.rows <- restricted$curves[restricted$curves$source == "overlay", ]
+  overlay.rows <- restricted$curves[restricted$curves$object.index == 1L, ]
   expect_equal(nrow(overlay.rows), 1)
   expect_identical(overlay.rows$name, "b")
   expect_identical(overlay.rows$col, "red")
@@ -150,13 +150,13 @@ test_that("lines_mts supports column restriction and graphical parameters", {
 
   plot.info <- plot_mts(x)
   vectorised <- lines_mts(y, plot.info = plot.info, col = c("red", "blue", "green"), lty = c(1, 2, 3))
-  overlay.rows <- vectorised$curves[vectorised$curves$source == "overlay", ]
+  overlay.rows <- vectorised$curves[vectorised$curves$object.index == 1L, ]
   expect_identical(overlay.rows$col, c("red", "blue", "green"))
   expect_identical(overlay.rows$lty, c("1", "2", "3"))
 
   plot.info <- plot_mts(x)
   named <- lines_mts(y, plot.info = plot.info, col = c(a = "red", b = "blue", c = "green"))
-  overlay.rows <- named$curves[named$curves$source == "overlay", ]
+  overlay.rows <- named$curves[named$curves$object.index == 1L, ]
   expect_identical(overlay.rows$col, c("green", "blue", "red"))
 
   plot.info <- plot_mts(x)
@@ -180,7 +180,43 @@ test_that("repeated lines_mts calls accumulate curve registry rows", {
   plot.info <- lines_mts(z, plot.info = plot.info, source = "z")
 
   expect_equal(nrow(plot.info$curves), 6)
-  expect_identical(plot.info$curves$source, c("base", "base", "y", "y", "z", "z"))
+  expect_identical(plot.info$curves$source, c("x", "x", "y", "y", "z", "z"))
+})
+
+test_that("plot_mts and lines_mts infer and override source labels", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  m <- list(
+    stats::ts(cbind(a = 1:10, b = 11:20)),
+    stats::ts(cbind(a = 2:11, b = 10:19)),
+    stats::ts(cbind(a = 3:12, b = 9:18))
+  )
+
+  plot.info <- plot_mts(m[[3]], blank.panels = 1)
+  expect_identical(unique(plot.info$curves$source), "m[[3]]")
+
+  plot.info <- lines_mts(m[[2]], plot.info = plot.info)
+  plot.info <- lines_mts(m[[1]], plot.info = plot.info)
+  expect_identical(unique(plot.info$curves$source), c("m[[3]]", "m[[2]]", "m[[1]]"))
+  expect_identical(unique(plot.info$curves$object.index), c(0L, 1L, 2L))
+
+  by.source <- legend_mts(plot.info, by = "source")
+  expect_identical(by.source$legend, c("m[[3]]", "m[[2]]", "m[[1]]"))
+  expect_equal(nrow(by.source$curves), 3)
+
+  explicit <- legend_mts(
+    plot.info,
+    by = "source",
+    legend = c("R0 = 8", "R0 = 4", "R0 = 2")
+  )
+  expect_identical(explicit$legend, c("R0 = 8", "R0 = 4", "R0 = 2"))
+
+  labelled <- plot_mts(m[[3]], source = "R0 = 8")
+  expect_identical(unique(labelled$curves$source), "R0 = 8")
+  labelled <- lines_mts(m[[2]], plot.info = labelled, source = "R0 = 4")
+  expect_identical(unique(labelled$curves$source), c("R0 = 8", "R0 = 4"))
 })
 
 test_that("lines_mts overlays on data panels when blank panels are present", {
@@ -194,7 +230,7 @@ test_that("lines_mts overlays on data panels when blank panels are present", {
 
   plot.info <- plot_mts(x, blank.panels = c(1, 4))
   plot.info <- lines_mts(y, plot.info = plot.info)
-  overlay.rows <- plot.info$curves[plot.info$curves$source == "overlay", ]
+  overlay.rows <- plot.info$curves[plot.info$curves$object.index == 1L, ]
   expect_identical(overlay.rows$name, c("c", "b", "a"))
   expect_identical(overlay.rows$panel.index, c(5L, 3L, 2L))
 
@@ -216,12 +252,38 @@ test_that("plot_mts_overlay handles one or more overlays", {
   one <- plot_mts_overlay(x, y)
   expect_equal(nrow(one$curves), 4)
   expect_identical(one$curves$object.index, c(0L, 0L, 1L, 1L))
-  expect_identical(one$curves$source, c("base", "base", "overlay1", "overlay1"))
+  expect_identical(one$curves$source, c("x", "x", "y", "y"))
 
   many <- plot_mts_overlay(x, y, z, overlay.names = c("first", "second"))
   expect_equal(nrow(many$curves), 6)
   expect_identical(many$curves$object.index, c(0L, 0L, 1L, 1L, 2L, 2L))
-  expect_identical(many$curves$source, c("base", "base", "first", "first", "second", "second"))
+  expect_identical(many$curves$source, c("x", "x", "first", "first", "second", "second"))
+})
+
+test_that("plot_mts_overlay derives and overrides source labels", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  m <- list(
+    stats::ts(cbind(a = 1:10, b = 11:20)),
+    stats::ts(cbind(a = 2:11, b = 10:19)),
+    stats::ts(cbind(a = 3:12, b = 9:18))
+  )
+
+  inferred <- plot_mts_overlay(m[[3]], m[[2]], m[[1]])
+  expect_identical(unique(inferred$curves$source), c("m[[3]]", "m[[2]]", "m[[1]]"))
+  expect_identical(unique(inferred$curves$object.index), c(0L, 1L, 2L))
+
+  labelled <- plot_mts_overlay(
+    m[[3]],
+    m[[2]],
+    m[[1]],
+    source.x = "R0 = 8",
+    overlay.names = c("R0 = 4", "R0 = 2")
+  )
+  expect_identical(unique(labelled$curves$source), c("R0 = 8", "R0 = 4", "R0 = 2"))
+  expect_identical(unique(labelled$curves$object.index), c(0L, 1L, 2L))
 })
 
 test_that("plot_mts_overlay passes blank panels through plot.args", {
@@ -272,14 +334,14 @@ test_that("legend_mts builds legends from curve registry", {
   expect_false(by.source$visible)
   expect_identical(by.source$value$panel, 1L)
   expect_identical(by.source$value$by, "source")
-  expect_identical(by.source$value$legend, c("base", "overlay"))
+  expect_identical(by.source$value$legend, c("x", "overlay"))
   expect_equal(nrow(by.source$value$curves), 2)
 
   by.column <- legend_mts(plot.info, by = "column", panel = 1)
   expect_identical(by.column$legend, c("a", "b", "c"))
 
   by.curve <- legend_mts(plot.info, by = "curve", panel = 1)
-  expect_identical(by.curve$legend, c("base: a", "base: b", "base: c", "overlay: a", "overlay: b", "overlay: c"))
+  expect_identical(by.curve$legend, c("x: a", "x: b", "x: c", "overlay: a", "overlay: b", "overlay: c"))
 
   explicit <- legend_mts(plot.info, panel = 1, legend = c("x", "y"), col = c("red", "blue"), lty = c(1, 2), lwd = c(2, 3))
   expect_identical(explicit$legend, c("x", "y"))
@@ -319,7 +381,7 @@ test_that("plot_mts_overlay lets plot.args override base defaults", {
     lwd.x = 1,
     plot.args = list(col = colour.override, lty = lty.override, lwd = lwd.override)
   )
-  base.rows <- plot.info$curves[plot.info$curves$source == "base", ]
+  base.rows <- plot.info$curves[plot.info$curves$object.index == 0L, ]
 
   expect_identical(base.rows$col, rep(colour.override, 2))
   expect_identical(base.rows$lty, rep(as.character(lty.override), 2))
@@ -345,7 +407,7 @@ test_that("plot_mts_overlay lets lines.args override overlay defaults", {
     lwd.y = 1,
     lines.args = list(col = colour.override, lty = lty.override, lwd = lwd.override)
   )
-  overlay.rows <- plot.info$curves[plot.info$curves$source == "overlay1", ]
+  overlay.rows <- plot.info$curves[plot.info$curves$object.index == 1L, ]
 
   expect_identical(overlay.rows$col, rep(colour.override, 2))
   expect_identical(overlay.rows$lty, rep(as.character(lty.override), 2))
@@ -362,6 +424,7 @@ test_that("plot_mts_overlay validates arguments", {
   expect_error(plot_mts_overlay(x, y, lines.args = 1), "`lines.args`")
   expect_error(plot_mts_overlay(x, y, plot.args = list(x = x)), "protected argument")
   expect_error(plot_mts_overlay(x, y, plot.args = list(columns = "a")), "protected argument")
+  expect_error(plot_mts_overlay(x, y, plot.args = list(source = "manual")), "protected argument")
 })
 
 test_that("plot_mts_overlay validates protected lines.args", {
