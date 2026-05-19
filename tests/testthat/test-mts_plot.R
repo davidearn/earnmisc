@@ -311,6 +311,152 @@ test_that("lines_mts overlays on data panels when blank panels are present", {
   expect_identical(z.rows$panel.index, c(2L, 3L, 5L))
 })
 
+test_that("abline_mts requires plot info and uses stored plot info", {
+  old.last <- mts_plot_store$last
+  on.exit(mts_plot_store$last <- old.last, add = TRUE)
+
+  mts_plot_store$last <- NULL
+  expect_error(abline_mts(h = 0), "requires a `plot.info` object")
+
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  plot_mts(x)
+  updated <- abline_mts(h = 0)
+
+  expect_s3_class(updated, "earnmisc_mts_plot_info")
+  expect_equal(nrow(updated$curves), 4)
+  expect_identical(updated$curves$type, c("l", "l", "abline", "abline"))
+  expect_identical(updated$curves$panel.index, c(1L, 2L, 1L, 2L))
+})
+
+test_that("abline_mts selects data panels, blank panels, and columns", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+  plot.info <- plot_mts(x, blank.panels = 2)
+
+  default <- abline_mts(plot.info = plot.info, h = 0)
+  abline.rows <- default$curves[default$curves$type == "abline", ]
+  expect_identical(abline.rows$panel.index, c(1L, 3L, 4L))
+
+  explicit.blank <- abline_mts(plot.info = plot.info, panels = 2, h = 0)
+  abline.rows <- explicit.blank$curves[explicit.blank$curves$type == "abline", ]
+  expect_identical(tail(abline.rows$panel.index, 1), 2L)
+  expect_true(is.na(tail(abline.rows$column, 1)))
+
+  by.name <- abline_mts(plot.info = plot.info, columns = "b", h = 0)
+  abline.rows <- by.name$curves[by.name$curves$type == "abline", ]
+  expect_identical(tail(abline.rows$panel.index, 1), 3L)
+  expect_identical(tail(abline.rows$name, 1), "b")
+
+  by.index <- abline_mts(plot.info = plot.info, columns = 3, h = 0)
+  abline.rows <- by.index$curves[by.index$curves$type == "abline", ]
+  expect_identical(tail(abline.rows$panel.index, 1), 4L)
+  expect_identical(tail(abline.rows$name, 1), "c")
+
+  expect_error(abline_mts(plot.info = plot.info, panels = 1, columns = "a", h = 0), "Only one")
+  expect_error(abline_mts(plot.info = plot.info, panels = 99, h = 0), "`panels`")
+})
+
+test_that("abline_mts handles graphical parameters by panel", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+
+  plot.info <- plot_mts(x)
+  scalar <- abline_mts(plot.info = plot.info, h = 0, col = "grey70", lty = 2, lwd = 3)
+  abline.rows <- scalar$curves[scalar$curves$type == "abline", ]
+  expect_identical(abline.rows$col, rep("grey70", 3))
+  expect_identical(abline.rows$lty, rep("2", 3))
+  expect_identical(abline.rows$lwd, rep(3, 3))
+
+  plot.info <- plot_mts(x)
+  vectorised <- abline_mts(plot.info = plot.info, h = 0, col = c("red", "blue", "green"), lty = c(1, 2, 3))
+  abline.rows <- vectorised$curves[vectorised$curves$type == "abline", ]
+  expect_identical(abline.rows$col, c("red", "blue", "green"))
+  expect_identical(abline.rows$lty, c("1", "2", "3"))
+
+  plot.info <- plot_mts(x)
+  named <- abline_mts(plot.info = plot.info, h = 0, col = c(a = "red", b = "blue", c = "green"))
+  abline.rows <- named$curves[named$curves$type == "abline", ]
+  expect_identical(abline.rows$col, c("red", "blue", "green"))
+
+  plot.info <- plot_mts(x)
+  expect_warning(
+    abline_mts(plot.info = plot.info, h = 0, col = c("red", "blue")),
+    "recycling values"
+  )
+})
+
+test_that("abline_mts accepts standard abline modes", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  plot.info <- plot_mts(x)
+
+  expect_silent(abline_mts(plot.info = plot.info, a = 0, b = 1, record = FALSE))
+  expect_silent(abline_mts(plot.info = plot.info, h = 0, record = FALSE))
+  expect_silent(abline_mts(plot.info = plot.info, v = 1, record = FALSE))
+  expect_silent(abline_mts(plot.info = plot.info, coef = c(0, 1), record = FALSE))
+  expect_silent(abline_mts(plot.info = plot.info, reg = stats::lm(1:10 ~ seq_len(10)), record = FALSE))
+})
+
+test_that("abline_mts records and skips registry rows according to record", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  plot.info <- plot_mts(x)
+
+  unrecorded <- abline_mts(plot.info = plot.info, h = 0, record = FALSE)
+  expect_equal(nrow(unrecorded$curves), 2)
+
+  recorded <- abline_mts(plot.info = plot.info, h = 0, record = TRUE)
+  expect_equal(nrow(recorded$curves), 4)
+  expect_identical(recorded$curves$type, c("l", "l", "abline", "abline"))
+  expect_identical(recorded$curves$source[3:4], c("abline", "abline"))
+  expect_identical(recorded$curves$object.index, c(0L, 0L, 1L, 1L))
+
+  repeated <- abline_mts(plot.info = recorded, v = 1)
+  expect_equal(nrow(repeated$curves), 6)
+  expect_identical(repeated$curves$object.index, c(0L, 0L, 1L, 1L, 2L, 2L))
+})
+
+test_that("abline_mts supports flexible source labels", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+
+  plot.info <- plot_mts(x)
+  character.source <- abline_mts(plot.info = plot.info, h = 0, source = "zero")
+  abline.rows <- character.source$curves[character.source$curves$type == "abline", ]
+  expect_identical(unique(abline.rows$source), "zero")
+  expect_identical(abline.rows$source.label[[1L]], "zero")
+
+  plot.info <- plot_mts(x)
+  expression.source <- abline_mts(plot.info = plot.info, h = 0, source = expression(y == 0))
+  abline.rows <- expression.source$curves[expression.source$curves$type == "abline", ]
+  expect_true(inherits(abline.rows$source.label[[1L]], "expression"))
+
+  plot.info <- plot_mts(x)
+  nice.source <- nice_text("$y = 0$")
+  nice <- abline_mts(plot.info = plot.info, h = 0, source = nice.source)
+  abline.rows <- nice$curves[nice$curves$type == "abline", ]
+  expect_identical(abline.rows$source.label[[1L]], nice.source)
+})
+
 test_that("plot_mts_overlay handles one or more overlays", {
   pdf.file <- tempfile(fileext = ".pdf")
   grDevices::pdf(pdf.file)

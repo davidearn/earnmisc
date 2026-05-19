@@ -356,6 +356,107 @@ lines_mts <- function(
   invisible(plot.info)
 }
 
+#' Add reference lines to mts plot panels
+#'
+#' Add [graphics::abline()] reference lines to panels created by [plot_mts()].
+#' This helper is part of the `plot_mts()` workflow and is not intended for
+#' arbitrary existing `plot.mts()` output. By default, it draws on all data
+#' panels and skips reserved blank panels.
+#'
+#' @param plot.info Plot metadata returned by [plot_mts()]. If `NULL`, the most
+#'   recent `plot_mts()` result is used.
+#' @param panels Optional full layout panel indices. If supplied, these panels
+#'   are used directly and may include blank panels.
+#' @param columns Optional plotted data columns. Character values are matched to
+#'   plotted column names; numeric values are interpreted as positions among the
+#'   plotted columns.
+#' @param a,b,h,v,reg,coef,untf Arguments passed to [graphics::abline()]. Only
+#'   non-`NULL` line-definition arguments are passed.
+#' @param source Source label used when recording the reference lines. It may be
+#'   a non-empty character scalar or scalar expression-like label, including
+#'   output from [nice_text()].
+#' @param record Logical. If `TRUE`, append reference-line rows to the
+#'   `plot.info$curves` registry for later legend construction.
+#' @param col,lty,lwd Common graphical arguments passed to
+#'   [graphics::abline()]. They may be scalar, vectorised by selected panel, or
+#'   named by plotted column where possible.
+#' @param ... Additional graphical arguments passed to [graphics::abline()].
+#'
+#' @return Invisibly returns the updated `earnmisc_mts_plot_info` object.
+#'
+#' @examples
+#' x <- stats::ts(cbind(a = 1:10, b = 11:20))
+#' plot.info <- plot_mts(x)
+#' plot.info <- abline_mts(
+#'   plot.info = plot.info,
+#'   h = 0,
+#'   col = "grey70",
+#'   lty = 2
+#' )
+#'
+#' plot.info <- plot_mts(x, blank.panels = 1)
+#' plot.info <- abline_mts(plot.info = plot.info, h = 0)
+#' legend_mts(plot.info)
+#'
+#' @export
+abline_mts <- function(
+  plot.info = NULL,
+  panels = NULL,
+  columns = NULL,
+  a = NULL,
+  b = NULL,
+  h = NULL,
+  v = NULL,
+  reg = NULL,
+  coef = NULL,
+  untf = FALSE,
+  source = "abline",
+  record = TRUE,
+  col = NULL,
+  lty = NULL,
+  lwd = NULL,
+  ...
+) {
+  plot.info <- resolve_mts_plot_info(plot.info, caller = "abline_mts")
+  source <- normalise_mts_source(substitute(source), source = source)
+  selected.panels <- select_mts_panels(
+    plot.info = plot.info,
+    panels = panels,
+    columns = columns
+  )
+  panel.args <- resolve_mts_abline_graphics(
+    dots = mts_abline_graphical_args(col = col, lty = lty, lwd = lwd, dots = list(...)),
+    panel.names = selected.panels$panel.names
+  )
+  abline.args <- mts_abline_args(
+    a = a,
+    b = b,
+    h = h,
+    v = v,
+    reg = reg,
+    coef = coef,
+    untf = untf
+  )
+
+  for (panel.index in seq_along(selected.panels$panels)) {
+    enter_mts_panel(plot.info, selected.panels$panels[[panel.index]])
+    do.call(graphics::abline, c(abline.args, panel.args[[panel.index]]))
+  }
+
+  if (isTRUE(record)) {
+    new.curves <- make_mts_abline_registry(
+      plot.info = plot.info,
+      selected.panels = selected.panels,
+      panel.args = panel.args,
+      source = source
+    )
+    plot.info$curves <- rbind(plot.info$curves, new.curves)
+    store_mts_plot_info(plot.info)
+  }
+
+  invisible(plot.info)
+}
+
 #' Plot an mts object with one or more overlays
 #'
 #' Convenience wrapper that calls [plot_mts()] once and [lines_mts()] once for
@@ -902,6 +1003,144 @@ resolve_mts_graphic_parameter <- function(value, n, column.names, parameter.name
   rep(value, length.out = n)
 }
 
+#' Resolve abline graphical arguments by panel
+#'
+#' Resolve graphical arguments supplied through `...` to one list per selected
+#' panel.
+#'
+#' @param dots Named list of graphical arguments.
+#' @param panel.names Names of selected panels, where available.
+#'
+#' @return List of argument lists, one per selected panel.
+#' @noRd
+resolve_mts_abline_graphics <- function(dots, panel.names) {
+  n <- length(panel.names)
+  panel.args <- rep(list(list()), n)
+
+  if (length(dots) == 0L) {
+    return(panel.args)
+  }
+  if (is.null(names(dots)) || any(!nzchar(names(dots)))) {
+    stop("Arguments in `...` must be named.", call. = FALSE)
+  }
+
+  for (argument.name in names(dots)) {
+    values <- resolve_mts_panel_argument(
+      value = dots[[argument.name]],
+      n = n,
+      panel.names = panel.names,
+      argument.name = argument.name
+    )
+    for (panel.index in seq_len(n)) {
+      panel.args[[panel.index]][[argument.name]] <- values[[panel.index]]
+    }
+  }
+
+  panel.args
+}
+
+#' Resolve one per-panel argument
+#'
+#' Resolve one vector argument by selected panel, using column names when
+#' available and otherwise ordinary recycling.
+#'
+#' @param value Argument value.
+#' @param n Number of selected panels.
+#' @param panel.names Selected panel names.
+#' @param argument.name Name for warning messages.
+#'
+#' @return List of scalar values.
+#' @noRd
+resolve_mts_panel_argument <- function(value, n, panel.names, argument.name) {
+  if (length(value) == 0L) {
+    stop("`", argument.name, "` must have length at least one.", call. = FALSE)
+  }
+
+  value.names <- names(value)
+  named.panels <- !is.na(panel.names) & nzchar(panel.names)
+  if (!is.null(value.names) && any(named.panels) &&
+      all(panel.names[named.panels] %in% value.names)) {
+    out <- vector("list", n)
+    for (index in seq_len(n)) {
+      if (named.panels[[index]]) {
+        out[[index]] <- value[[match(panel.names[[index]], value.names)]]
+      } else {
+        out[[index]] <- value[[((index - 1L) %% length(value)) + 1L]]
+      }
+    }
+    return(out)
+  }
+
+  if (n %% length(value) != 0L) {
+    warning(
+      "`",
+      argument.name,
+      "` length is not a multiple of the number of selected panels; recycling values.",
+      call. = FALSE
+    )
+  }
+
+  lapply(seq_len(n), function(index) value[[((index - 1L) %% length(value)) + 1L]])
+}
+
+#' Build abline arguments
+#'
+#' Build a list of [graphics::abline()] arguments, omitting `NULL` line
+#' definitions.
+#'
+#' @param a,b,h,v,reg,coef,untf Arguments from [abline_mts()].
+#'
+#' @return List of arguments.
+#' @noRd
+mts_abline_args <- function(a, b, h, v, reg, coef, untf) {
+  args <- list()
+  if (!is.null(a)) {
+    args$a <- a
+  }
+  if (!is.null(b)) {
+    args$b <- b
+  }
+  if (!is.null(h)) {
+    args$h <- h
+  }
+  if (!is.null(v)) {
+    args$v <- v
+  }
+  if (!is.null(reg)) {
+    args$reg <- reg
+  }
+  if (!is.null(coef)) {
+    args$coef <- coef
+  }
+  args$untf <- untf
+  args
+}
+
+#' Build abline graphical arguments
+#'
+#' Combine explicit common graphical arguments with additional arguments from
+#' `...`.
+#'
+#' @param col,lty,lwd Optional common graphical arguments.
+#' @param dots Additional argument list.
+#'
+#' @return Named list of graphical arguments.
+#' @noRd
+mts_abline_graphical_args <- function(col = NULL, lty = NULL, lwd = NULL, dots = list()) {
+  args <- list()
+  if (!is.null(col)) {
+    args$col <- col
+  }
+  if (!is.null(lty)) {
+    args$lty <- lty
+  }
+  if (!is.null(lwd)) {
+    args$lwd <- lwd
+  }
+
+  c(args, dots)
+}
+
 #' Create mts curve-registry rows
 #'
 #' Create data-frame rows describing base or overlay curves.
@@ -936,6 +1175,54 @@ make_mts_curve_registry <- function(source,
     drawn = as.logical(rep(drawn, length(column))),
     reason = as.character(reason),
     stringsAsFactors = FALSE
+  )
+}
+
+#' Create abline curve-registry rows
+#'
+#' Create registry rows for reference lines added by [abline_mts()].
+#'
+#' @param plot.info Plot metadata.
+#' @param selected.panels Selected panel metadata from [select_mts_panels()].
+#' @param panel.args Per-panel graphical arguments.
+#' @param source Normalised source label.
+#'
+#' @return A data frame suitable for appending to `plot.info$curves`.
+#' @noRd
+make_mts_abline_registry <- function(plot.info,
+                                     selected.panels,
+                                     panel.args,
+                                     source) {
+  n <- length(selected.panels$panels)
+  current.col <- graphics::par("col")
+  current.lty <- graphics::par("lty")
+  current.lwd <- graphics::par("lwd")
+  col <- vapply(panel.args, function(args) {
+    as.character(if (!is.null(args$col)) args$col else current.col)
+  }, character(1))
+  lty <- vapply(panel.args, function(args) {
+    as.character(if (!is.null(args$lty)) args$lty else current.lty)
+  }, character(1))
+  lwd <- vapply(panel.args, function(args) {
+    as.numeric(if (!is.null(args$lwd)) args$lwd else current.lwd)
+  }, numeric(1))
+  panel.names <- selected.panels$panel.names
+  panel.names[is.na(panel.names)] <- NA_character_
+
+  make_mts_curve_registry(
+    source = source$key,
+    source.label = source$label,
+    object.index = next_mts_object_index(plot.info),
+    column = selected.panels$columns,
+    name = panel.names,
+    panel.index = selected.panels$panels,
+    panel.name = panel.names,
+    col = col,
+    lty = lty,
+    lwd = lwd,
+    type = "abline",
+    drawn = TRUE,
+    reason = NA_character_
   )
 }
 
@@ -1018,6 +1305,89 @@ validate_mts_panel_index <- function(panel, plot.info) {
   }
 
   as.integer(panel)
+}
+
+#' Select mts panels
+#'
+#' Select full layout panels for helpers that add to an existing mts plot.
+#'
+#' @param plot.info Plot metadata.
+#' @param panels Optional full layout panel indices.
+#' @param columns Optional plotted columns.
+#'
+#' @return A list containing selected panel indices and related metadata.
+#' @noRd
+select_mts_panels <- function(plot.info, panels = NULL, columns = NULL) {
+  if (!is.null(panels) && !is.null(columns)) {
+    stop("Only one of `panels` and `columns` can be supplied.", call. = FALSE)
+  }
+
+  if (!is.null(panels)) {
+    panels <- validate_mts_panel_vector(panels, plot.info)
+    panel.metadata <- plot.info$panels[as.character(panels)]
+    return(list(
+      panels = panels,
+      columns = vapply(panel.metadata, function(panel) panel$column, integer(1)),
+      panel.names = vapply(panel.metadata, function(panel) panel$name, character(1)),
+      panel.roles = plot.info$panel.roles[panels]
+    ))
+  }
+
+  if (!is.null(columns)) {
+    column.positions <- resolve_mts_columns(
+      columns,
+      column.names = plot.info$column.names,
+      ncol = length(plot.info$columns),
+      argument.name = "columns"
+    )
+  } else {
+    column.positions <- seq_along(plot.info$columns)
+  }
+
+  panels <- plot.info$data.panels[column.positions]
+  list(
+    panels = panels,
+    columns = plot.info$columns[column.positions],
+    panel.names = plot.info$column.names[column.positions],
+    panel.roles = plot.info$panel.roles[panels]
+  )
+}
+
+#' Validate mts panel indices
+#'
+#' Validate a vector of full-layout panel indices.
+#'
+#' @param panels Panel indices.
+#' @param plot.info Plot metadata.
+#'
+#' @return Integer vector of panel indices.
+#' @noRd
+validate_mts_panel_vector <- function(panels, plot.info) {
+  n.panels <- length(plot.info$panel.roles)
+  if (!is.numeric(panels) || length(panels) == 0L || anyNA(panels) ||
+      any(panels != floor(panels)) || any(panels < 1L) || any(panels > n.panels)) {
+    stop("`panels` must contain valid full-layout panel indices.", call. = FALSE)
+  }
+
+  as.integer(panels)
+}
+
+#' Enter an mts panel without clearing it
+#'
+#' Restore panel graphics state so drawing commands add to an existing mts
+#' panel. This is designed for helpers such as [abline_mts()] and a future
+#' `add_to_mts_panel()`.
+#'
+#' @param plot.info Plot metadata.
+#' @param panel Full layout panel index.
+#'
+#' @return Invisibly returns panel metadata.
+#' @noRd
+enter_mts_panel <- function(plot.info, panel) {
+  panel <- validate_mts_panel_index(panel, plot.info)
+  graphics::par(mfg = plot.info$mfg[[panel]])
+  graphics::par(usr = plot.info$usr[[panel]])
+  invisible(plot.info$panels[[panel]])
 }
 
 #' Return next overlay object index
@@ -1256,6 +1626,11 @@ mts_legend_lty <- function(lty) {
     return(numeric.lty)
   }
 
+  line.type.names <- c("blank", "solid", "dashed", "dotted", "dotdash", "longdash", "twodash")
+  integer.lty <- suppressWarnings(as.integer(lty))
+  numeric.text <- !is.na(integer.lty) & lty == as.character(integer.lty) &
+    integer.lty >= 0L & integer.lty <= 6L
+  lty[numeric.text] <- line.type.names[integer.lty[numeric.text] + 1L]
   lty
 }
 
