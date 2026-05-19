@@ -4,10 +4,10 @@ mts_plot_store$last <- NULL
 #' Plot a multivariate time series in panels
 #'
 #' Plot selected columns of a multivariate time series, one column per panel,
-#' and return metadata that [lines_mts()] can use for later overlays.
+#' and return metadata that [mts_lines()] can use for later overlays.
 #'
 #' These helpers provide a coherent base-graphics workflow for `mts` overlays:
-#' call `plot_mts()` first, then pass the returned object to `lines_mts()`.
+#' call `mts_plot()` first, then pass the returned object to `mts_lines()`.
 #' Overlaying onto arbitrary existing [stats::plot.ts()] or `plot.mts()` output
 #' is not supported because base R does not expose a stable public panel map.
 #' Curve sources are recorded in the `curves` registry. The `source` column is
@@ -21,7 +21,7 @@ mts_plot_store$last <- NULL
 #' @param nrow,ncol Optional panel layout dimensions.
 #' @param blank.panels Optional positive integer vector of full layout panel
 #'   indices to reserve for later legends, annotations, or custom graphics.
-#'   Reserved panels are blank after `plot_mts()` finishes.
+#'   Reserved panels are blank after `mts_plot()` finishes.
 #' @param main Optional outer title.
 #' @param xlab X-axis label.
 #' @param ylab Optional y-axis label. If `NULL`, each panel uses its column name.
@@ -36,34 +36,34 @@ mts_plot_store$last <- NULL
 #' @param ... Additional arguments passed to [graphics::plot.default()].
 #'
 #' @return Invisibly returns an `earnmisc_mts_plot_info` list containing panel
-#'   metadata and a `curves` registry. The registry is used by [legend_mts()]
+#'   metadata and a `curves` registry. The registry is used by [mts_legend()]
 #'   and can also be inspected directly.
 #'
 #' @examples
 #' x <- stats::ts(cbind(a = 1:10, b = 11:20))
 #' y <- stats::ts(cbind(a = 2:11, b = 10:19))
-#' plot.info <- plot_mts(x)
-#' plot.info <- lines_mts(y, plot.info = plot.info)
+#' plot.info <- mts_plot(x)
+#' plot.info <- mts_lines(y, plot.info = plot.info)
 #' plot.info$curves
-#' plot.info <- plot_mts(x, source = "baseline")
-#' plot.info <- lines_mts(y, plot.info = plot.info, source = "comparison")
-#' legend_mts(plot.info, by = "source", panel = 1)
-#' plot.info <- plot_mts(x, source = expression(R[0] == 8))
-#' plot.info <- lines_mts(y, plot.info = plot.info, source = expression(R[0] == 4))
-#' legend_mts(plot.info, by = "source", panel = 1)
+#' plot.info <- mts_plot(x, source = "baseline")
+#' plot.info <- mts_lines(y, plot.info = plot.info, source = "comparison")
+#' mts_legend(plot.info, by = "source", panel = 1)
+#' plot.info <- mts_plot(x, source = expression(R[0] == 8))
+#' plot.info <- mts_lines(y, plot.info = plot.info, source = expression(R[0] == 4))
+#' mts_legend(plot.info, by = "source", panel = 1)
 #'
 #' x3 <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
 #' y3 <- stats::ts(cbind(a = 2:11, b = 10:19, c = 20:29))
-#' plot.info <- plot_mts(x3, blank.panels = 1)
-#' plot.info <- lines_mts(y3, plot.info = plot.info, source = "overlay")
-#' legend_mts(plot.info)
+#' plot.info <- mts_plot(x3, blank.panels = 1)
+#' plot.info <- mts_lines(y3, plot.info = plot.info, source = "overlay")
+#' mts_legend(plot.info)
 #'
-#' plot.info <- plot_mts(x3, blank.panels = c(1, 4))
-#' set_mts_panel(4, plot.info)
+#' plot.info <- mts_plot(x3, blank.panels = c(1, 4))
+#' mts_set_panel(4, plot.info)
 #' graphics::text(0.5, 0.5, "Notes")
 #'
 #' @export
-plot_mts <- function(
+mts_plot <- function(
   x,
   columns = NULL,
   nrow = NULL,
@@ -213,19 +213,19 @@ plot_mts <- function(
   invisible(plot.info)
 }
 
-#' Overlay multivariate time-series columns on `plot_mts()` panels
+#' Overlay multivariate time-series columns on `mts_plot()` panels
 #'
 #' Overlay selected columns from an `mts`-like object onto panels created by
-#' [plot_mts()]. This function is not intended for arbitrary existing
-#' `plot.mts()` output. When [plot_mts()] has reserved blank panels,
-#' `lines_mts()` overlays on the correct data panels and skips reserved panels.
+#' [mts_plot()]. This function is not intended for arbitrary existing
+#' `plot.mts()` output. When [mts_plot()] has reserved blank panels,
+#' `mts_lines()` overlays on the correct data panels and skips reserved panels.
 #' If `source` is `NULL`, the source label is inferred from the expression
 #' supplied for `y`, so repeated direct calls with different inputs remain
-#' distinct in [legend_mts()] when `by = "source"`.
+#' distinct in [mts_legend()] when `by = "source"`.
 #'
 #' @param y Overlay multivariate time-series object.
-#' @param plot.info Plot metadata returned by [plot_mts()]. If `NULL`, the most
-#'   recent `plot_mts()` result is used.
+#' @param plot.info Plot metadata returned by [mts_plot()]. If `NULL`, the most
+#'   recent `mts_plot()` result is used.
 #' @param columns Optional overlay column names or indices.
 #' @param match Column matching mode: `"name"` or `"position"`.
 #' @param unmatched Behaviour for unmatched overlay columns: `"warn"`,
@@ -245,11 +245,11 @@ plot_mts <- function(
 #' @examples
 #' x <- stats::ts(cbind(a = 1:10, b = 11:20))
 #' y <- stats::ts(cbind(b = 10:19, a = 2:11))
-#' plot.info <- plot_mts(x)
-#' plot.info <- lines_mts(y, plot.info = plot.info)
+#' plot.info <- mts_plot(x)
+#' plot.info <- mts_lines(y, plot.info = plot.info)
 #'
 #' @export
-lines_mts <- function(
+mts_lines <- function(
   y,
   plot.info = NULL,
   columns = NULL,
@@ -266,7 +266,7 @@ lines_mts <- function(
   if (is.null(plot.info)) {
     plot.info <- last_mts_plot_info()
     if (is.null(plot.info)) {
-      stop("`lines_mts()` requires a `plot.info` object from `plot_mts()` or a prior call to `plot_mts()`.", call. = FALSE)
+      stop("`mts_lines()` requires a `plot.info` object from `mts_plot()` or a prior call to `mts_plot()`.", call. = FALSE)
     }
   }
   validate_mts_plot_info(plot.info)
@@ -358,13 +358,13 @@ lines_mts <- function(
 
 #' Add reference lines to mts plot panels
 #'
-#' Add [graphics::abline()] reference lines to panels created by [plot_mts()].
-#' This helper is part of the `plot_mts()` workflow and is not intended for
+#' Add [graphics::abline()] reference lines to panels created by [mts_plot()].
+#' This helper is part of the `mts_plot()` workflow and is not intended for
 #' arbitrary existing `plot.mts()` output. By default, it draws on all data
 #' panels and skips reserved blank panels.
 #'
-#' @param plot.info Plot metadata returned by [plot_mts()]. If `NULL`, the most
-#'   recent `plot_mts()` result is used.
+#' @param plot.info Plot metadata returned by [mts_plot()]. If `NULL`, the most
+#'   recent `mts_plot()` result is used.
 #' @param panels Optional full layout panel indices. If supplied, these panels
 #'   are used directly and may include blank panels.
 #' @param columns Optional plotted data columns. Character values are matched to
@@ -386,20 +386,20 @@ lines_mts <- function(
 #'
 #' @examples
 #' x <- stats::ts(cbind(a = 1:10, b = 11:20))
-#' plot.info <- plot_mts(x)
-#' plot.info <- abline_mts(
+#' plot.info <- mts_plot(x)
+#' plot.info <- mts_abline(
 #'   plot.info = plot.info,
 #'   h = 0,
 #'   col = "grey70",
 #'   lty = 2
 #' )
 #'
-#' plot.info <- plot_mts(x, blank.panels = 1)
-#' plot.info <- abline_mts(plot.info = plot.info, h = 0)
-#' legend_mts(plot.info)
+#' plot.info <- mts_plot(x, blank.panels = 1)
+#' plot.info <- mts_abline(plot.info = plot.info, h = 0)
+#' mts_legend(plot.info)
 #'
 #' @export
-abline_mts <- function(
+mts_abline <- function(
   plot.info = NULL,
   panels = NULL,
   columns = NULL,
@@ -417,7 +417,7 @@ abline_mts <- function(
   lwd = NULL,
   ...
 ) {
-  plot.info <- resolve_mts_plot_info(plot.info, caller = "abline_mts")
+  plot.info <- resolve_mts_plot_info(plot.info, caller = "mts_abline")
   source <- normalise_mts_source(substitute(source), source = source)
   selected.panels <- select_mts_panels(
     plot.info = plot.info,
@@ -459,7 +459,7 @@ abline_mts <- function(
 
 #' Plot an mts object with one or more overlays
 #'
-#' Convenience wrapper that calls [plot_mts()] once and [lines_mts()] once for
+#' Convenience wrapper that calls [mts_plot()] once and [mts_lines()] once for
 #' each overlay object supplied in `...`. Source labels are inferred from the
 #' input expressions unless `source.x` or `overlay.names` are supplied.
 #'
@@ -468,7 +468,7 @@ abline_mts <- function(
 #' @param columns.x Optional base columns.
 #' @param columns.y Optional overlay columns used for each overlay object.
 #' @param match,unmatched Matching and unmatched-column behaviour passed to
-#'   [lines_mts()].
+#'   [mts_lines()].
 #' @param col.x,lty.x,lwd.x Base graphical parameters.
 #' @param col.y,lty.y,lwd.y Overlay graphical parameters. If `NULL`, simple
 #'   defaults are used. If a list, each element is used for the corresponding
@@ -479,11 +479,11 @@ abline_mts <- function(
 #' @param overlay.names Optional source labels for overlay objects. A character
 #'   vector or expression vector must contain one label per overlay object. If
 #'   `NULL`, labels are inferred from the expressions supplied in `...`.
-#' @param plot.args Additional arguments passed to [plot_mts()]. Same-named
+#' @param plot.args Additional arguments passed to [mts_plot()]. Same-named
 #'   values override base plotting defaults such as `col.x`, `lty.x`, and
 #'   `lwd.x`. Core arguments `x`, `columns`, and `source` cannot be supplied
 #'   here.
-#' @param lines.args Additional arguments passed to [lines_mts()]. Same-named
+#' @param lines.args Additional arguments passed to [mts_lines()]. Same-named
 #'   values override overlay defaults such as `col.y`, `lty.y`, and `lwd.y`.
 #'   Core arguments `y`, `plot.info`, `columns`, `source`, and `object.index`
 #'   cannot be supplied here.
@@ -494,17 +494,17 @@ abline_mts <- function(
 #' x <- stats::ts(cbind(a = 1:10, b = 11:20))
 #' y <- stats::ts(cbind(a = 2:11, b = 10:19))
 #' z <- stats::ts(cbind(a = 3:12, b = 9:18))
-#' plot.info <- plot_mts_overlay(x, y)
-#' plot.info <- plot_mts_overlay(x, y, z)
+#' plot.info <- mts_plot_overlay(x, y)
+#' plot.info <- mts_plot_overlay(x, y, z)
 #' plot.info$curves
-#' plot.info <- plot_mts_overlay(
+#' plot.info <- mts_plot_overlay(
 #'   x, y, z,
 #'   source.x = "baseline",
 #'   overlay.names = c("comparison 1", "comparison 2")
 #' )
 #'
 #' @export
-plot_mts_overlay <- function(
+mts_plot_overlay <- function(
   x,
   ...,
   columns.x = NULL,
@@ -557,7 +557,7 @@ plot_mts_overlay <- function(
     protected = c("x", "columns", "source"),
     argument.name = "plot.args"
   )
-  plot.info <- do.call(plot_mts, plot.call.args)
+  plot.info <- do.call(mts_plot, plot.call.args)
 
   for (overlay.index in seq_along(overlays)) {
     lines.call.args <- merge_call_args(
@@ -577,7 +577,7 @@ plot_mts_overlay <- function(
       protected = c("y", "plot.info", "columns", "source", "object.index"),
       argument.name = "lines.args"
     )
-    plot.info <- do.call(lines_mts, lines.call.args)
+    plot.info <- do.call(mts_lines, lines.call.args)
   }
 
   invisible(plot.info)
@@ -585,16 +585,16 @@ plot_mts_overlay <- function(
 
 #' Reinitialise an mts plot panel
 #'
-#' Select a panel from a layout created by [plot_mts()], clear it with
+#' Select a panel from a layout created by [mts_plot()], clear it with
 #' [graphics::plot.new()], and initialise a simple coordinate system with
 #' [graphics::plot.window()]. This is intended mainly for reserved blank panels
 #' used for legends, notes, or later custom graphics. It clears the selected
 #' panel, so it is not intended for adding annotations on top of an already
-#' drawn data panel; a future `add_to_mts_panel()` helper may support that.
+#' drawn data panel; a future `mts_add_to_panel()` helper may support that.
 #'
 #' @param panel Full layout panel index.
-#' @param plot.info Plot metadata returned by [plot_mts()]. If `NULL`, the most
-#'   recent `plot_mts()` result is used.
+#' @param plot.info Plot metadata returned by [mts_plot()]. If `NULL`, the most
+#'   recent `mts_plot()` result is used.
 #' @param xlim,ylim Coordinate limits passed to [graphics::plot.window()].
 #' @param axes Logical value. If `TRUE`, simple axes and a box are drawn after
 #'   the plot window is initialised.
@@ -605,12 +605,12 @@ plot_mts_overlay <- function(
 #'
 #' @examples
 #' x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
-#' plot.info <- plot_mts(x, blank.panels = c(1, 4))
-#' set_mts_panel(4, plot.info)
+#' plot.info <- mts_plot(x, blank.panels = c(1, 4))
+#' mts_set_panel(4, plot.info)
 #' graphics::text(0.5, 0.5, "Notes")
 #'
 #' @export
-set_mts_panel <- function(
+mts_set_panel <- function(
   panel,
   plot.info = NULL,
   xlim = c(0, 1),
@@ -620,7 +620,7 @@ set_mts_panel <- function(
   yaxs = "i",
   ...
 ) {
-  plot.info <- resolve_mts_plot_info(plot.info, caller = "set_mts_panel")
+  plot.info <- resolve_mts_plot_info(plot.info, caller = "mts_set_panel")
   panel <- validate_mts_panel_index(panel, plot.info)
 
   graphics::par(mfg = plot.info$mfg[[panel]])
@@ -643,7 +643,7 @@ set_mts_panel <- function(
 
 #' Add a legend to an mts plot panel
 #'
-#' Draw a legend for curves recorded by [plot_mts()] and [lines_mts()]. By
+#' Draw a legend for curves recorded by [mts_plot()] and [mts_lines()]. By
 #' default, the legend is grouped by source label and drawn in the first panel
 #' reserved with `blank.panels`; otherwise supply `panel` explicitly. For
 #' `by = "source"`, grouping uses the character `source` key, while labels come
@@ -651,8 +651,8 @@ set_mts_panel <- function(
 #' can be rendered by [graphics::legend()]. Explicit `legend` labels override
 #' source-derived labels.
 #'
-#' @param plot.info Plot metadata returned by [plot_mts()]. If `NULL`, the most
-#'   recent `plot_mts()` result is used.
+#' @param plot.info Plot metadata returned by [mts_plot()]. If `NULL`, the most
+#'   recent `mts_plot()` result is used.
 #' @param panel Optional full layout panel index. If `NULL`, the first blank
 #'   panel in `plot.info$blank.panels` is used.
 #' @param by Legend grouping: `"source"`, `"curve"`, or `"column"`.
@@ -670,12 +670,12 @@ set_mts_panel <- function(
 #' @examples
 #' x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
 #' y <- stats::ts(cbind(a = 2:11, b = 10:19, c = 20:29))
-#' plot.info <- plot_mts(x, blank.panels = 1)
-#' plot.info <- lines_mts(y, plot.info = plot.info, source = "overlay")
-#' legend_mts(plot.info)
+#' plot.info <- mts_plot(x, blank.panels = 1)
+#' plot.info <- mts_lines(y, plot.info = plot.info, source = "overlay")
+#' mts_legend(plot.info)
 #'
 #' @export
-legend_mts <- function(
+mts_legend <- function(
   plot.info = NULL,
   panel = NULL,
   by = c("source", "curve", "column"),
@@ -685,12 +685,12 @@ legend_mts <- function(
   bty = "n",
   ...
 ) {
-  plot.info <- resolve_mts_plot_info(plot.info, caller = "legend_mts")
+  plot.info <- resolve_mts_plot_info(plot.info, caller = "mts_legend")
   by <- match.arg(by)
 
   if (is.null(panel)) {
     if (is.null(plot.info$blank.panels) || length(plot.info$blank.panels) == 0L) {
-      stop("`legend_mts()` needs `panel` or a plot with reserved `blank.panels`.", call. = FALSE)
+      stop("`mts_legend()` needs `panel` or a plot with reserved `blank.panels`.", call. = FALSE)
     }
     panel <- plot.info$blank.panels[[1L]]
   }
@@ -704,7 +704,7 @@ legend_mts <- function(
     legend <- make_mts_legend_labels(selected.curves, by = by)
   }
 
-  set_mts_panel(panel, plot.info = plot.info)
+  mts_set_panel(panel, plot.info = plot.info)
   legend.args <- merge_call_args(
     defaults = list(
       x = x,
@@ -932,7 +932,7 @@ resolve_mts_columns <- function(columns, column.names, ncol, argument.name) {
 #'
 #' @param y.column.names Original overlay column names, possibly `NULL`.
 #' @param y.columns Selected overlay column indices.
-#' @param plot.info Plot metadata from [plot_mts()].
+#' @param plot.info Plot metadata from [mts_plot()].
 #' @param match Matching mode.
 #'
 #' @return Integer panel indices with `NA` for unmatched columns.
@@ -1088,7 +1088,7 @@ resolve_mts_panel_argument <- function(value, n, panel.names, argument.name) {
 #' Build a list of [graphics::abline()] arguments, omitting `NULL` line
 #' definitions.
 #'
-#' @param a,b,h,v,reg,coef,untf Arguments from [abline_mts()].
+#' @param a,b,h,v,reg,coef,untf Arguments from [mts_abline()].
 #'
 #' @return List of arguments.
 #' @noRd
@@ -1180,7 +1180,7 @@ make_mts_curve_registry <- function(source,
 
 #' Create abline curve-registry rows
 #'
-#' Create registry rows for reference lines added by [abline_mts()].
+#' Create registry rows for reference lines added by [mts_abline()].
 #'
 #' @param plot.info Plot metadata.
 #' @param selected.panels Selected panel metadata from [select_mts_panels()].
@@ -1228,7 +1228,7 @@ make_mts_abline_registry <- function(plot.info,
 
 #' Store mts plot metadata
 #'
-#' Store the most recent mts plot-info object for implicit [lines_mts()] use.
+#' Store the most recent mts plot-info object for implicit [mts_lines()] use.
 #'
 #' @param plot.info Plot metadata.
 #'
@@ -1251,7 +1251,7 @@ last_mts_plot_info <- function() {
 
 #' Validate mts plot metadata
 #'
-#' Check that an object looks like metadata returned by [plot_mts()].
+#' Check that an object looks like metadata returned by [mts_plot()].
 #'
 #' @param plot.info Object to validate.
 #'
@@ -1262,7 +1262,7 @@ validate_mts_plot_info <- function(plot.info) {
 
   if (!inherits(plot.info, "earnmisc_mts_plot_info") ||
       !all(required.names %in% names(plot.info))) {
-    stop("`plot.info` must be an object returned by `plot_mts()`.", call. = FALSE)
+    stop("`plot.info` must be an object returned by `mts_plot()`.", call. = FALSE)
   }
 
   invisible(plot.info)
@@ -1270,7 +1270,7 @@ validate_mts_plot_info <- function(plot.info) {
 
 #' Resolve mts plot metadata
 #'
-#' Use explicit plot metadata or the most recently stored [plot_mts()] result.
+#' Use explicit plot metadata or the most recently stored [mts_plot()] result.
 #'
 #' @param plot.info Optional plot metadata.
 #' @param caller Name of calling function for error messages.
@@ -1281,7 +1281,7 @@ resolve_mts_plot_info <- function(plot.info = NULL, caller = "mts helper") {
   if (is.null(plot.info)) {
     plot.info <- last_mts_plot_info()
     if (is.null(plot.info)) {
-      stop("`", caller, "()` requires a `plot.info` object from `plot_mts()` or a prior call to `plot_mts()`.", call. = FALSE)
+      stop("`", caller, "()` requires a `plot.info` object from `mts_plot()` or a prior call to `mts_plot()`.", call. = FALSE)
     }
   }
   validate_mts_plot_info(plot.info)
@@ -1375,8 +1375,8 @@ validate_mts_panel_vector <- function(panels, plot.info) {
 #' Enter an mts panel without clearing it
 #'
 #' Restore panel graphics state so drawing commands add to an existing mts
-#' panel. This is designed for helpers such as [abline_mts()] and a future
-#' `add_to_mts_panel()`.
+#' panel. This is designed for helpers such as [mts_abline()] and a future
+#' `mts_add_to_panel()`.
 #'
 #' @param plot.info Plot metadata.
 #' @param panel Full layout panel index.

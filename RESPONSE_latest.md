@@ -1,44 +1,37 @@
 # Latest Codex Response Summary
 
-- Entry ID: `20260515T205031Z`
-- Recorded: `2026-05-15T20:55:14+00:00`
+- Entry ID: `20260519T195614Z`
+- Recorded: `2026-05-19T20:02:57+00:00`
 
-Fixed `source` label handling for `mts` plotting legends.
+Implemented the clean `mts_*` rename.
 
-Previously, `source` was validated as a non-empty character scalar and stored only in the character `curves$source` column. That rejected `expression(...)` and `nice_text()` labels, and would have lost their class even if accepted.
+Renamed exports:
+- `plot_mts()` -> `mts_plot()`
+- `lines_mts()` -> `mts_lines()`
+- `abline_mts()` -> `mts_abline()`
+- `legend_mts()` -> `mts_legend()`
+- `set_mts_panel()` -> `mts_set_panel()`
+- `plot_mts_overlay()` -> `mts_plot_overlay()`
 
-Now each curve registry row stores:
-- `source`: a stable character key for grouping and inspection.
-- `source.label`: a base R list-column preserving the original display label, including `expression` / `latexexpression` objects.
-
-`legend_mts(by = "source")` still groups by the character `source` key, but now builds legend labels from `source.label`. If any selected source labels are expression-like, they are combined into an expression vector and passed through to `graphics::legend()`.
-
-`plot_mts_overlay()` now supports:
-- `source.x` as character or scalar expression-like label.
-- `overlay.names` as character vector or expression vector, one label per overlay.
-
-Tests added/revised for:
-- `plot_mts(..., source = expression(...))`
-- `lines_mts(..., source = expression(...))`
-- `lines_mts(..., source = nice_text(...))`
-- `curves$source` remaining character
-- `curves$source.label` preserving expression-like labels
-- `legend_mts(by = "source")` returning expression labels
-- explicit `legend = ...` still overriding source labels
-- invalid source values erroring clearly
-- expression labels through `plot_mts_overlay(source.x = ..., overlay.names = ...)`
+Updated package code, roxygen examples, package-level docs, generated `.Rd` files, tests, and `NAMESPACE`. No backwards-compatibility aliases were kept. Documentation references to the possible future helper now use `mts_add_to_panel()`.
 
 Files changed:
-- [R/mts_plot.R](/Users/earn/r/earnmisc/R/mts_plot.R)
-- [man/plot_mts.Rd](/Users/earn/r/earnmisc/man/plot_mts.Rd)
-- [man/lines_mts.Rd](/Users/earn/r/earnmisc/man/lines_mts.Rd)
-- [man/plot_mts_overlay.Rd](/Users/earn/r/earnmisc/man/plot_mts_overlay.Rd)
-- [man/legend_mts.Rd](/Users/earn/r/earnmisc/man/legend_mts.Rd)
-- [tests/testthat/test-mts_plot.R](/Users/earn/r/earnmisc/tests/testthat/test-mts_plot.R)
+- `NAMESPACE`
+- `R/earnmisc-package.R`
+- `R/mts_plot.R`
+- `tests/testthat/test-mts_plot.R`
+- `man/earnmisc-package.Rd`
+- added new `man/mts_*.Rd` help files
+- removed old `man/*_mts*.Rd` help files for the old names
+
+Tests revised:
+- Updated all mts workflow tests to use the new names.
+- Added export checks confirming the new names are exported and the old names are not.
+- Added a workflow check covering `mts_plot()`, `mts_lines()`, `mts_abline()`, `mts_set_panel()`, and `mts_legend()`.
 
 Verification:
-- `make document` passed.
-- `make test` passed.
-- `make check` passed with `Status: OK`.
+- `make document`: completed and regenerated `NAMESPACE`/help files.
+- `make test`: passed.
+- `make check`: passed, `Status: OK`. It printed repository-index warnings from unavailable CRAN/Bioconductor URLs, but the check completed successfully.
 
-The CRAN/Bioconductor index warnings during check are from restricted network access; the package check itself is clean.
+I also searched package source, tests, generated help, and metadata for the old names; no old public-name references remain there. Existing unrelated changes in `PROMPTS_used.md` and `PROMPT_latest.md` were left untouched.
