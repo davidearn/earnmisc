@@ -5684,7 +5684,7 @@ The CRAN/Bioconductor index warnings during check are from restricted network ac
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260515T205031Z -->
-- Recorded: `2026-05-15T21:00:29+00:00`
-- Hash: `bdae24a2c413b003f6b032a2b453cc622ab6b1c2`
-- Subject: Support expression source labels in mts legends
+- Recorded: `2026-05-19T17:14:31+00:00`
+- Hash: `82323f4b660d2a1d18706a4196a2064aabb16212`
+- Subject: Add abline_mts reference-line helper
 <!-- codex-workflow-commit-end: 20260515T205031Z -->
