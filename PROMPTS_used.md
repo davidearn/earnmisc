@@ -5944,5 +5944,7 @@ I also searched package source, tests, generated help, and metadata for the old 
 ### Commit
 
 <!-- codex-workflow-commit-start: 20260519T195614Z -->
-_Pending._
+- Recorded: `2026-05-19T20:53:57+00:00`
+- Hash: `e8395ea27bb59d82232f75a7d9bfb74416c942f0`
+- Subject: Rename mts plotting helpers consistently
 <!-- codex-workflow-commit-end: 20260519T195614Z -->
