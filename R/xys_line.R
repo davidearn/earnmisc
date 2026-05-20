@@ -5,8 +5,9 @@
 #' packages can provide methods for their own classes while reusing the same
 #' point/slope convention.
 #'
-#' @param x Object used for method dispatch. For the default method, a numeric
-#'   vector giving x-coordinates of points on the lines.
+#' @param object Object used for S3 method dispatch. For ordinary numeric use,
+#'   this is the x-coordinate of a point on the line. Calls using the
+#'   user-facing name `x =` are also supported by the default method.
 #' @param ... Additional arguments passed to methods. For the default method,
 #'   graphical parameters passed to [graphics::abline()]. When more than one
 #'   line is drawn, vector graphical parameters are recycled across lines using
@@ -22,9 +23,16 @@
 #'   Any expanded graphical parameters are stored in the
 #'   `graphics.parameters` attribute of the returned value.
 #'
+#' @details
+#' For ordinary numeric use, call `xys_line(x, y, slope, ...)`. The generic uses
+#' `object` as its dispatch formal so downstream packages can define methods for
+#' their own classes without confusing the dispatch object with the numeric
+#' x-coordinate used by the default method.
+#'
 #' @examples
 #' plot(1:10, 1:10)
 #' xys_line(3, 4, slope = 1)
+#' xys_line(x = 3, y = 4, slope = 1)
 #' xys_line(5, 8, slope = -0.5, col = "red", lty = 2)
 #'
 #' plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
@@ -35,17 +43,28 @@
 #' xys_line(c(-0.5, 0.5), 0, slope = Inf, col = c("blue", "red"))
 #'
 #' @export
-xys_line <- function(x, ...) {
+xys_line <- function(object, ...) {
   UseMethod("xys_line")
 }
 
 #' @rdname xys_line
 #' @export
-xys_line.default <- function(x, y, slope, ...) {
+xys_line.default <- function(object, y, slope, ...) {
+  dots <- list(...)
+  if (missing(object)) {
+    if (!("x" %in% names(dots))) {
+      stop("`x` must be supplied for the default `xys_line()` method.", call. = FALSE)
+    }
+    x.index <- match("x", names(dots))
+    object <- dots[[x.index]]
+    dots <- dots[-x.index]
+  }
+
+  x <- object
   validate_xys_line_inputs(x = x, y = y, slope = slope)
   line.parameters <- xys_line_parameters(x = x, y = y, slope = slope)
   line.count <- nrow(line.parameters)
-  graphics.parameters <- recycle_graphics_parameters(list(...), line.count)
+  graphics.parameters <- recycle_graphics_parameters(dots, line.count)
 
   draw_xys_lines(
     line.parameters = line.parameters,
@@ -173,7 +192,7 @@ xys_line_return_value <- function(line.parameters, graphics.parameters) {
 #' @noRd
 recycle_graphics_parameters <- function(graphics.parameters, line.count) {
   if (length(graphics.parameters) == 0L) {
-    return(graphics.parameters)
+    return(list())
   }
 
   for (parameter.name in names(graphics.parameters)) {

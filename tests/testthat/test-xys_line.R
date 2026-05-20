@@ -1,5 +1,6 @@
 test_that("xys_line is an S3 generic", {
   expect_true(utils::isS3stdGeneric("xys_line"))
+  expect_identical(names(formals(xys_line)), c("object", "..."))
   expect_true(is.function(xys_line.default))
 })
 
@@ -14,6 +15,17 @@ test_that("xys_line scalar input returns parameters invisibly", {
   expect_identical(result$value, c(intercept = -2, slope = 2))
 })
 
+test_that("xys_line preserves named x-coordinate calls", {
+  grDevices::pdf(file = NULL)
+  on.exit(grDevices::dev.off())
+  graphics::plot(1:10, 1:10)
+
+  result <- withVisible(xys_line(x = 3, y = 4, slope = 2))
+
+  expect_false(result$visible)
+  expect_identical(result$value, c(intercept = -2, slope = 2))
+})
+
 test_that("xys_line.default preserves scalar input behaviour", {
   grDevices::pdf(file = NULL)
   on.exit(grDevices::dev.off())
@@ -23,10 +35,14 @@ test_that("xys_line.default preserves scalar input behaviour", {
 
   expect_false(result$visible)
   expect_identical(result$value, c(intercept = -2, slope = 2))
+
+  named.result <- withVisible(xys_line.default(x = 3, y = 4, slope = 2))
+  expect_false(named.result$visible)
+  expect_identical(named.result$value, c(intercept = -2, slope = 2))
 })
 
 test_that("xys_line dispatches to class methods", {
-  method <- function(x, ...) "dispatched"
+  method <- function(object, ...) "dispatched"
   registerS3method(
     "xys_line",
     "test_xys_line",

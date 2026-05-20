@@ -5,13 +5,14 @@
 \alias{xys_line.default}
 \title{Draw lines through points with specified slopes}
 \usage{
-xys_line(x, ...)
+xys_line(object, ...)
 
-\method{xys_line}{default}(x, y, slope, ...)
+\method{xys_line}{default}(object, y, slope, ...)
 }
 \arguments{
-\item{x}{Object used for method dispatch. For the default method, a numeric
-vector giving x-coordinates of points on the lines.}
+\item{object}{Object used for S3 method dispatch. For ordinary numeric use,
+this is the x-coordinate of a point on the line. Calls using the
+user-facing name \verb{x =} are also supported by the default method.}
 
 \item{...}{Additional arguments passed to methods. For the default method,
 graphical parameters passed to \code{\link[graphics:abline]{graphics::abline()}}. When more than one
@@ -37,9 +38,16 @@ through all combinations of numeric \code{x}, \code{y}, and \code{slope} values.
 packages can provide methods for their own classes while reusing the same
 point/slope convention.
 }
+\details{
+For ordinary numeric use, call \code{xys_line(x, y, slope, ...)}. The generic uses
+\code{object} as its dispatch formal so downstream packages can define methods for
+their own classes without confusing the dispatch object with the numeric
+x-coordinate used by the default method.
+}
 \examples{
 plot(1:10, 1:10)
 xys_line(3, 4, slope = 1)
+xys_line(x = 3, y = 4, slope = 1)
 xys_line(5, 8, slope = -0.5, col = "red", lty = 2)
 
 plot(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
