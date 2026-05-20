@@ -39,13 +39,14 @@ labels, graphical parameters, selected curves, and the result from
 \code{\link[graphics:legend]{graphics::legend()}}.
 }
 \description{
-Draw a legend for curves recorded by \code{\link[=mts_plot]{mts_plot()}} and \code{\link[=mts_lines]{mts_lines()}}. By
-default, the legend is grouped by source label and drawn in the first panel
-reserved with \code{blank.panels}; otherwise supply \code{panel} explicitly. For
-\code{by = "source"}, grouping uses the character \code{source} key, while labels come
-from the preserved \code{source.label} values so plotmath and \code{\link[=nice_text]{nice_text()}} labels
-can be rendered by \code{\link[graphics:legend]{graphics::legend()}}. Explicit \code{legend} labels override
-source-derived labels.
+Draw a legend for curves recorded by \code{\link[=mts_plot]{mts_plot()}}, \code{\link[=mts_lines]{mts_lines()}},
+\code{\link[=mts_abline]{mts_abline()}}, and \code{\link[=mts_xys_line]{mts_xys_line()}}. By default, the legend is grouped by
+source label and drawn in the first panel reserved with \code{blank.panels};
+otherwise supply \code{panel} explicitly. For \code{by = "source"}, grouping uses the
+character \code{source} key, while labels come from the preserved \code{source.label}
+values so plotmath and \code{\link[=nice_text]{nice_text()}} labels can be rendered by
+\code{\link[graphics:legend]{graphics::legend()}}. Explicit \code{legend} labels override source-derived
+labels.
 }
 \examples{
 x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))

@@ -14,9 +14,9 @@ The main utility families are:
 \itemize{
 \item Okabe-Ito colour palette helpers.
 \item Colour swatch display helpers.
-\item Small base graphics helpers, including vectorised \code{xys_line()}.
+\item Small base graphics helpers, including the S3 generic \code{xys_line()}.
 \item Multivariate time-series plotting helpers, including reserved blank panels,
-\code{mts_abline()}, and \code{mts_legend()}.
+\code{mts_abline()}, \code{mts_xys_line()}, and \code{mts_legend()}.
 \item Base graphics plot metadata helpers.
 \item List and object representation helpers.
 \item Lightweight TeX label helpers, including \code{nice_text()}.

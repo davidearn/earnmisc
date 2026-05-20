@@ -30,6 +30,7 @@ test_that("mts helper exports use the mts prefix", {
     "mts_plot",
     "mts_lines",
     "mts_abline",
+    "mts_xys_line",
     "mts_legend",
     "mts_set_panel",
     "mts_plot_overlay"
@@ -45,6 +46,27 @@ test_that("mts helper exports use the mts prefix", {
 
   expect_true(all(new.names %in% exports))
   expect_false(any(old.names %in% exports))
+})
+
+test_that("mts workflow supports xys lines with the new names", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  y <- stats::ts(cbind(a = 2:11, b = 10:19))
+
+  plot.info <- mts_plot(x, blank.panels = 1)
+  plot.info <- mts_lines(y, plot.info = plot.info)
+  plot.info <- mts_abline(h = 0, plot.info = plot.info)
+  plot.info <- mts_xys_line(0, 0, 1, plot.info = plot.info)
+  panel.info <- mts_set_panel(1, plot.info)
+  legend.info <- mts_legend(plot.info)
+
+  expect_s3_class(plot.info, "earnmisc_mts_plot_info")
+  expect_identical(panel.info$panel.index, 1L)
+  expect_identical(legend.info$panel, 1L)
+  expect_true("xys_line" %in% plot.info$curves$type)
 })
 
 test_that("mts_plot reserves blank panels and records data panels", {
@@ -478,6 +500,161 @@ test_that("mts_abline supports flexible source labels", {
   nice <- mts_abline(plot.info = plot.info, h = 0, source = nice.source)
   abline.rows <- nice$curves[nice$curves$type == "abline", ]
   expect_identical(abline.rows$source.label[[1L]], nice.source)
+})
+
+test_that("mts_xys_line requires plot info and uses stored plot info", {
+  old.last <- mts_plot_store$last
+  on.exit(mts_plot_store$last <- old.last, add = TRUE)
+
+  mts_plot_store$last <- NULL
+  expect_error(mts_xys_line(0, 0, 1), "requires a `plot.info` object")
+
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  mts_plot(x)
+  updated <- mts_xys_line(0, 0, 1)
+
+  expect_s3_class(updated, "earnmisc_mts_plot_info")
+  expect_equal(nrow(updated$curves), 4)
+  expect_identical(updated$curves$type, c("l", "l", "xys_line", "xys_line"))
+  expect_identical(updated$curves$panel.index, c(1L, 2L, 1L, 2L))
+  expect_identical(updated$curves$intercept[3:4], c(0, 0))
+  expect_identical(updated$curves$slope[3:4], c(1, 1))
+})
+
+test_that("mts_xys_line selects data panels, blank panels, and columns", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+  plot.info <- mts_plot(x, blank.panels = 2)
+
+  default <- mts_xys_line(0, 0, 1, plot.info = plot.info)
+  xys.rows <- default$curves[default$curves$type == "xys_line", ]
+  expect_identical(xys.rows$panel.index, c(1L, 3L, 4L))
+
+  explicit.blank <- mts_xys_line(0, 0, 1, plot.info = plot.info, panels = 2)
+  xys.rows <- explicit.blank$curves[explicit.blank$curves$type == "xys_line", ]
+  expect_identical(tail(xys.rows$panel.index, 1), 2L)
+  expect_true(is.na(tail(xys.rows$column, 1)))
+
+  by.name <- mts_xys_line(0, 0, 1, plot.info = plot.info, columns = "b")
+  xys.rows <- by.name$curves[by.name$curves$type == "xys_line", ]
+  expect_identical(tail(xys.rows$panel.index, 1), 3L)
+  expect_identical(tail(xys.rows$name, 1), "b")
+
+  by.index <- mts_xys_line(0, 0, 1, plot.info = plot.info, columns = 3)
+  xys.rows <- by.index$curves[by.index$curves$type == "xys_line", ]
+  expect_identical(tail(xys.rows$panel.index, 1), 4L)
+  expect_identical(tail(xys.rows$name, 1), "c")
+
+  expect_error(mts_xys_line(0, 0, 1, plot.info = plot.info, panels = 1, columns = "a"), "Only one")
+  expect_error(mts_xys_line(0, 0, 1, plot.info = plot.info, panels = 99), "`panels`")
+})
+
+test_that("mts_xys_line handles graphical parameters by panel and line", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+
+  plot.info <- mts_plot(x)
+  scalar <- mts_xys_line(0, 0, 1, plot.info = plot.info, col = "grey70", lty = 2, lwd = 3)
+  xys.rows <- scalar$curves[scalar$curves$type == "xys_line", ]
+  expect_identical(xys.rows$col, rep("grey70", 3))
+  expect_identical(xys.rows$lty, rep("2", 3))
+  expect_identical(xys.rows$lwd, rep(3, 3))
+
+  plot.info <- mts_plot(x[, 1:2])
+  vectorised <- mts_xys_line(0, c(0.1, -0.1), 1, plot.info = plot.info, col = c("red", "blue"), lty = c(1, 2))
+  xys.rows <- vectorised$curves[vectorised$curves$type == "xys_line", ]
+  expect_identical(xys.rows$col, c("red", "blue", "red", "blue"))
+  expect_identical(xys.rows$lty, c("1", "2", "1", "2"))
+
+  plot.info <- mts_plot(x)
+  named <- mts_xys_line(0, c(0.1, -0.1), 1, plot.info = plot.info, col = c(a = "red", b = "blue", c = "green"))
+  xys.rows <- named$curves[named$curves$type == "xys_line", ]
+  expect_identical(xys.rows$col, c("red", "red", "blue", "blue", "green", "green"))
+
+  plot.info <- mts_plot(x)
+  expect_warning(
+    mts_xys_line(0, c(0.1, -0.1), 1, plot.info = plot.info, col = c("red", "blue", "green", "black")),
+    "recycling values"
+  )
+})
+
+test_that("mts_xys_line preserves vectorised point and slope semantics", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  plot.info <- mts_plot(x)
+  result <- mts_xys_line(c(0, 1), c(0.1, -0.1), c(1, Inf), plot.info = plot.info)
+  xys.rows <- result$curves[result$curves$type == "xys_line", ]
+
+  expected <- xys_line_parameters(c(0, 1), c(0.1, -0.1), c(1, Inf))
+
+  expect_equal(nrow(xys.rows), nrow(expected) * 2L)
+  expect_identical(xys.rows$x[seq_len(nrow(expected))], expected$x)
+  expect_identical(xys.rows$y[seq_len(nrow(expected))], expected$y)
+  expect_identical(xys.rows$slope[seq_len(nrow(expected))], expected$slope)
+  expect_identical(xys.rows$intercept[seq_len(nrow(expected))], expected$intercept)
+  expect_true(any(is.infinite(xys.rows$slope)))
+  expect_true(any(is.na(xys.rows$intercept)))
+})
+
+test_that("mts_xys_line records and skips registry rows according to record", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  plot.info <- mts_plot(x)
+
+  unrecorded <- mts_xys_line(0, 0, 1, plot.info = plot.info, record = FALSE)
+  expect_equal(nrow(unrecorded$curves), 2)
+
+  recorded <- mts_xys_line(0, 0, 1, plot.info = plot.info, record = TRUE)
+  expect_equal(nrow(recorded$curves), 4)
+  expect_identical(recorded$curves$type, c("l", "l", "xys_line", "xys_line"))
+  expect_identical(recorded$curves$source[3:4], c("xys_line", "xys_line"))
+  expect_identical(recorded$curves$object.index, c(0L, 0L, 1L, 1L))
+
+  repeated <- mts_xys_line(0, 0, Inf, plot.info = recorded)
+  expect_equal(nrow(repeated$curves), 6)
+  expect_identical(repeated$curves$object.index, c(0L, 0L, 1L, 1L, 2L, 2L))
+  expect_identical(repeated$curves$intercept[5:6], c(NA_real_, NA_real_))
+})
+
+test_that("mts_xys_line supports flexible source labels", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+
+  plot.info <- mts_plot(x)
+  character.source <- mts_xys_line(0, 0, 1, plot.info = plot.info, source = "slope 1")
+  xys.rows <- character.source$curves[character.source$curves$type == "xys_line", ]
+  expect_identical(unique(xys.rows$source), "slope 1")
+  expect_identical(xys.rows$source.label[[1L]], "slope 1")
+
+  plot.info <- mts_plot(x)
+  expression.source <- mts_xys_line(0, 0, 1, plot.info = plot.info, source = expression(slope == 1))
+  xys.rows <- expression.source$curves[expression.source$curves$type == "xys_line", ]
+  expect_true(inherits(xys.rows$source.label[[1L]], "expression"))
+
+  plot.info <- mts_plot(x)
+  nice.source <- nice_text("$slope = 1$")
+  nice <- mts_xys_line(0, 0, 1, plot.info = plot.info, source = nice.source)
+  xys.rows <- nice$curves[nice$curves$type == "xys_line", ]
+  expect_identical(xys.rows$source.label[[1L]], nice.source)
 })
 
 test_that("mts_plot_overlay handles one or more overlays", {

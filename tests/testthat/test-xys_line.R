@@ -1,3 +1,8 @@
+test_that("xys_line is an S3 generic", {
+  expect_true(utils::isS3stdGeneric("xys_line"))
+  expect_true(is.function(xys_line.default))
+})
+
 test_that("xys_line scalar input returns parameters invisibly", {
   grDevices::pdf(file = NULL)
   on.exit(grDevices::dev.off())
@@ -7,6 +12,31 @@ test_that("xys_line scalar input returns parameters invisibly", {
 
   expect_false(result$visible)
   expect_identical(result$value, c(intercept = -2, slope = 2))
+})
+
+test_that("xys_line.default preserves scalar input behaviour", {
+  grDevices::pdf(file = NULL)
+  on.exit(grDevices::dev.off())
+  graphics::plot(1:10, 1:10)
+
+  result <- withVisible(xys_line.default(3, 4, slope = 2))
+
+  expect_false(result$visible)
+  expect_identical(result$value, c(intercept = -2, slope = 2))
+})
+
+test_that("xys_line dispatches to class methods", {
+  method <- function(x, ...) "dispatched"
+  registerS3method(
+    "xys_line",
+    "test_xys_line",
+    method,
+    envir = asNamespace("earnmisc")
+  )
+
+  x <- structure(1, class = "test_xys_line")
+
+  expect_identical(xys_line(x), "dispatched")
 })
 
 test_that("xys_line scalar infinite slope returns vertical line parameters invisibly", {

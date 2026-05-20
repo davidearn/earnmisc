@@ -4,7 +4,8 @@ mts_plot_store$last <- NULL
 #' Plot a multivariate time series in panels
 #'
 #' Plot selected columns of a multivariate time series, one column per panel,
-#' and return metadata that [mts_lines()] can use for later overlays.
+#' and return metadata that [mts_lines()], [mts_abline()], and
+#' [mts_xys_line()] can use for later overlays.
 #'
 #' These helpers provide a coherent base-graphics workflow for `mts` overlays:
 #' call `mts_plot()` first, then pass the returned object to `mts_lines()`.
@@ -457,6 +458,108 @@ mts_abline <- function(
   invisible(plot.info)
 }
 
+#' Add point/slope reference lines to mts plot panels
+#'
+#' Add point/slope reference lines to panels created by [mts_plot()]. This is
+#' analogous to [mts_abline()], but uses the default numeric [xys_line()]
+#' convention: finite slopes draw `y - slope * x` intercept lines and infinite
+#' slopes draw vertical lines through `x`. This helper is part of the
+#' `mts_plot()` workflow and is not intended for arbitrary existing
+#' `plot.mts()` output. By default, it draws on all data panels and skips
+#' reserved blank panels.
+#'
+#' @param x,y,slope Numeric vectors defining points and slopes. All
+#'   combinations of `x`, `y`, and `slope` are drawn in each selected panel.
+#'   Infinite slopes draw vertical lines through `x`.
+#' @param plot.info Plot metadata returned by [mts_plot()]. If `NULL`, the most
+#'   recent `mts_plot()` result is used.
+#' @param panels Optional full layout panel indices. If supplied, these panels
+#'   are used directly and may include blank panels.
+#' @param columns Optional plotted data columns. Character values are matched to
+#'   plotted column names; numeric values are interpreted as positions among the
+#'   plotted columns.
+#' @param source Source label used when recording the reference lines. It may be
+#'   a non-empty character scalar or scalar expression-like label, including
+#'   output from [nice_text()].
+#' @param record Logical. If `TRUE`, append point/slope rows to the
+#'   `plot.info$curves` registry for later legend construction.
+#' @param col,lty,lwd Common graphical arguments passed to
+#'   [graphics::abline()] through [xys_line()]. They may be scalar, vectorised
+#'   over selected panels and generated lines, or named by plotted column where
+#'   possible.
+#' @param ... Graphical arguments passed to [graphics::abline()] through
+#'   [xys_line()].
+#'
+#' @return Invisibly returns the updated `earnmisc_mts_plot_info` object.
+#'
+#' @examples
+#' z <- stats::ts(cbind(a = 1:10, b = 11:20))
+#' plot.info <- mts_plot(z)
+#' plot.info <- mts_xys_line(0, 5, 1, plot.info = plot.info, col = "grey50")
+#' plot.info <- mts_xys_line(
+#'   0,
+#'   c(0.1, -0.1),
+#'   1,
+#'   plot.info = plot.info,
+#'   col = c("blue", "red")
+#' )
+#'
+#' plot.info <- mts_plot(z, blank.panels = 1)
+#' plot.info <- mts_xys_line(0, 0, 1, plot.info = plot.info)
+#'
+#' @export
+mts_xys_line <- function(
+  x,
+  y,
+  slope,
+  plot.info = NULL,
+  panels = NULL,
+  columns = NULL,
+  source = "xys_line",
+  record = TRUE,
+  col = NULL,
+  lty = NULL,
+  lwd = NULL,
+  ...
+) {
+  plot.info <- resolve_mts_plot_info(plot.info, caller = "mts_xys_line")
+  source <- normalise_mts_source(substitute(source), source = source)
+  validate_xys_line_inputs(x = x, y = y, slope = slope)
+  line.parameters <- xys_line_parameters(x = x, y = y, slope = slope)
+  selected.panels <- select_mts_panels(
+    plot.info = plot.info,
+    panels = panels,
+    columns = columns
+  )
+  panel.args <- resolve_mts_xys_graphics(
+    dots = mts_abline_graphical_args(col = col, lty = lty, lwd = lwd, dots = list(...)),
+    panel.names = selected.panels$panel.names,
+    line.count = nrow(line.parameters)
+  )
+
+  for (panel.index in seq_along(selected.panels$panels)) {
+    enter_mts_panel(plot.info, selected.panels$panels[[panel.index]])
+    draw_xys_lines(
+      line.parameters = line.parameters,
+      graphics.parameters = panel.args[[panel.index]]
+    )
+  }
+
+  if (isTRUE(record)) {
+    new.curves <- make_mts_xys_registry(
+      plot.info = plot.info,
+      selected.panels = selected.panels,
+      panel.args = panel.args,
+      source = source,
+      line.parameters = line.parameters
+    )
+    plot.info$curves <- rbind(plot.info$curves, new.curves)
+    store_mts_plot_info(plot.info)
+  }
+
+  invisible(plot.info)
+}
+
 #' Plot an mts object with one or more overlays
 #'
 #' Convenience wrapper that calls [mts_plot()] once and [mts_lines()] once for
@@ -643,13 +746,14 @@ mts_set_panel <- function(
 
 #' Add a legend to an mts plot panel
 #'
-#' Draw a legend for curves recorded by [mts_plot()] and [mts_lines()]. By
-#' default, the legend is grouped by source label and drawn in the first panel
-#' reserved with `blank.panels`; otherwise supply `panel` explicitly. For
-#' `by = "source"`, grouping uses the character `source` key, while labels come
-#' from the preserved `source.label` values so plotmath and [nice_text()] labels
-#' can be rendered by [graphics::legend()]. Explicit `legend` labels override
-#' source-derived labels.
+#' Draw a legend for curves recorded by [mts_plot()], [mts_lines()],
+#' [mts_abline()], and [mts_xys_line()]. By default, the legend is grouped by
+#' source label and drawn in the first panel reserved with `blank.panels`;
+#' otherwise supply `panel` explicitly. For `by = "source"`, grouping uses the
+#' character `source` key, while labels come from the preserved `source.label`
+#' values so plotmath and [nice_text()] labels can be rendered by
+#' [graphics::legend()]. Explicit `legend` labels override source-derived
+#' labels.
 #'
 #' @param plot.info Plot metadata returned by [mts_plot()]. If `NULL`, the most
 #'   recent `mts_plot()` result is used.
@@ -1039,6 +1143,45 @@ resolve_mts_abline_graphics <- function(dots, panel.names) {
   panel.args
 }
 
+#' Resolve xys-line graphical arguments by panel and line
+#'
+#' Resolve graphical arguments supplied through `...` to one list per selected
+#' panel. Each list contains values recycled to one value per generated
+#' point/slope line.
+#'
+#' @param dots Named list of graphical arguments.
+#' @param panel.names Names of selected panels, where available.
+#' @param line.count Number of generated point/slope lines per panel.
+#'
+#' @return List of argument lists, one per selected panel.
+#' @noRd
+resolve_mts_xys_graphics <- function(dots, panel.names, line.count) {
+  n <- length(panel.names)
+  panel.args <- rep(list(list()), n)
+
+  if (length(dots) == 0L) {
+    return(panel.args)
+  }
+  if (is.null(names(dots)) || any(!nzchar(names(dots)))) {
+    stop("Arguments in `...` must be named.", call. = FALSE)
+  }
+
+  for (argument.name in names(dots)) {
+    values <- resolve_mts_xys_panel_line_argument(
+      value = dots[[argument.name]],
+      n = n,
+      panel.names = panel.names,
+      line.count = line.count,
+      argument.name = argument.name
+    )
+    for (panel.index in seq_len(n)) {
+      panel.args[[panel.index]][[argument.name]] <- values[[panel.index]]
+    }
+  }
+
+  panel.args
+}
+
 #' Resolve one per-panel argument
 #'
 #' Resolve one vector argument by selected panel, using column names when
@@ -1081,6 +1224,61 @@ resolve_mts_panel_argument <- function(value, n, panel.names, argument.name) {
   }
 
   lapply(seq_len(n), function(index) value[[((index - 1L) %% length(value)) + 1L]])
+}
+
+#' Resolve one per-panel and per-line argument
+#'
+#' Resolve one vector argument over selected panels and generated point/slope
+#' lines. Named vectors are matched by selected panel name where possible.
+#'
+#' @param value Argument value.
+#' @param n Number of selected panels.
+#' @param panel.names Selected panel names.
+#' @param line.count Number of generated point/slope lines per panel.
+#' @param argument.name Name for warning messages.
+#'
+#' @return List of vectors, one vector per selected panel.
+#' @noRd
+resolve_mts_xys_panel_line_argument <- function(value,
+                                                n,
+                                                panel.names,
+                                                line.count,
+                                                argument.name) {
+  if (length(value) == 0L) {
+    stop("`", argument.name, "` must have length at least one.", call. = FALSE)
+  }
+
+  value.names <- names(value)
+  named.panels <- !is.na(panel.names) & nzchar(panel.names)
+  if (!is.null(value.names) && any(named.panels) &&
+      all(panel.names[named.panels] %in% value.names)) {
+    out <- vector("list", n)
+    for (index in seq_len(n)) {
+      if (named.panels[[index]]) {
+        out[[index]] <- rep(value[[match(panel.names[[index]], value.names)]], length.out = line.count)
+      } else {
+        out[[index]] <- rep(value[[((index - 1L) %% length(value)) + 1L]], length.out = line.count)
+      }
+    }
+    return(out)
+  }
+
+  total.count <- n * line.count
+  if (total.count %% length(value) != 0L) {
+    warning(
+      "`",
+      argument.name,
+      "` length is not a multiple of the number of selected panel-line combinations; recycling values.",
+      call. = FALSE
+    )
+  }
+
+  values <- rep(value, length.out = total.count)
+  lapply(seq_len(n), function(index) {
+    first <- (index - 1L) * line.count + 1L
+    last <- index * line.count
+    values[first:last]
+  })
 }
 
 #' Build abline arguments
@@ -1159,11 +1357,16 @@ make_mts_curve_registry <- function(source,
                                     lwd,
                                     type,
                                     drawn,
-                                    reason) {
+                                    reason,
+                                    x = NA_real_,
+                                    y = NA_real_,
+                                    slope = NA_real_,
+                                    intercept = NA_real_) {
+  n <- length(column)
   data.frame(
-    source = rep(source, length(column)),
-    source.label = I(rep(list(source.label), length(column))),
-    object.index = as.integer(rep(object.index, length(column))),
+    source = rep(source, n),
+    source.label = I(rep(list(source.label), n)),
+    object.index = as.integer(rep(object.index, n)),
     column = as.integer(column),
     name = as.character(name),
     panel.index = as.integer(panel.index),
@@ -1171,9 +1374,13 @@ make_mts_curve_registry <- function(source,
     col = as.character(col),
     lty = as.character(lty),
     lwd = as.numeric(lwd),
-    type = as.character(rep(type, length(column))),
-    drawn = as.logical(rep(drawn, length(column))),
+    type = as.character(rep(type, n)),
+    drawn = as.logical(rep(drawn, n)),
     reason = as.character(reason),
+    x = as.numeric(rep(x, length.out = n)),
+    y = as.numeric(rep(y, length.out = n)),
+    slope = as.numeric(rep(slope, length.out = n)),
+    intercept = as.numeric(rep(intercept, length.out = n)),
     stringsAsFactors = FALSE
   )
 }
@@ -1223,6 +1430,63 @@ make_mts_abline_registry <- function(plot.info,
     type = "abline",
     drawn = TRUE,
     reason = NA_character_
+  )
+}
+
+#' Create xys-line curve-registry rows
+#'
+#' Create registry rows for point/slope lines added by [mts_xys_line()].
+#'
+#' @param plot.info Plot metadata.
+#' @param selected.panels Selected panel metadata from [select_mts_panels()].
+#' @param panel.args Per-panel graphical arguments.
+#' @param source Normalised source label.
+#' @param line.parameters Expanded point/slope line parameters.
+#'
+#' @return A data frame suitable for appending to `plot.info$curves`.
+#' @noRd
+make_mts_xys_registry <- function(plot.info,
+                                  selected.panels,
+                                  panel.args,
+                                  source,
+                                  line.parameters) {
+  panel.count <- length(selected.panels$panels)
+  line.count <- nrow(line.parameters)
+  current.col <- graphics::par("col")
+  current.lty <- graphics::par("lty")
+  current.lwd <- graphics::par("lwd")
+
+  col <- unlist(lapply(panel.args, function(args) {
+    as.character(if (!is.null(args$col)) args$col else rep(current.col, line.count))
+  }), use.names = FALSE)
+  lty <- unlist(lapply(panel.args, function(args) {
+    as.character(if (!is.null(args$lty)) args$lty else rep(current.lty, line.count))
+  }), use.names = FALSE)
+  lwd <- unlist(lapply(panel.args, function(args) {
+    as.numeric(if (!is.null(args$lwd)) args$lwd else rep(current.lwd, line.count))
+  }), use.names = FALSE)
+
+  panel.names <- selected.panels$panel.names
+  panel.names[is.na(panel.names)] <- NA_character_
+
+  make_mts_curve_registry(
+    source = source$key,
+    source.label = source$label,
+    object.index = next_mts_object_index(plot.info),
+    column = rep(selected.panels$columns, each = line.count),
+    name = rep(panel.names, each = line.count),
+    panel.index = rep(selected.panels$panels, each = line.count),
+    panel.name = rep(panel.names, each = line.count),
+    col = col,
+    lty = lty,
+    lwd = lwd,
+    type = "xys_line",
+    drawn = TRUE,
+    reason = NA_character_,
+    x = rep(line.parameters$x, times = panel.count),
+    y = rep(line.parameters$y, times = panel.count),
+    slope = rep(line.parameters$slope, times = panel.count),
+    intercept = rep(line.parameters$intercept, times = panel.count)
   )
 }
 

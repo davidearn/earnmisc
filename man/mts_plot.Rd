@@ -64,7 +64,8 @@ and can also be inspected directly.
 }
 \description{
 Plot selected columns of a multivariate time series, one column per panel,
-and return metadata that \code{\link[=mts_lines]{mts_lines()}} can use for later overlays.
+and return metadata that \code{\link[=mts_lines]{mts_lines()}}, \code{\link[=mts_abline]{mts_abline()}}, and
+\code{\link[=mts_xys_line]{mts_xys_line()}} can use for later overlays.
 }
 \details{
 These helpers provide a coherent base-graphics workflow for \code{mts} overlays:

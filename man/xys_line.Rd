@@ -2,21 +2,26 @@
 % Please edit documentation in R/xys_line.R
 \name{xys_line}
 \alias{xys_line}
+\alias{xys_line.default}
 \title{Draw lines through points with specified slopes}
 \usage{
-xys_line(x, y, slope, ...)
+xys_line(x, ...)
+
+\method{xys_line}{default}(x, y, slope, ...)
 }
 \arguments{
-\item{x}{Numeric vector giving x-coordinates of points on the lines.}
+\item{x}{Object used for method dispatch. For the default method, a numeric
+vector giving x-coordinates of points on the lines.}
+
+\item{...}{Additional arguments passed to methods. For the default method,
+graphical parameters passed to \code{\link[graphics:abline]{graphics::abline()}}. When more than one
+line is drawn, vector graphical parameters are recycled across lines using
+R's usual recycling rules.}
 
 \item{y}{Numeric vector giving y-coordinates of points on the lines.}
 
 \item{slope}{Numeric vector giving slopes of the lines. Infinite slopes draw
 vertical lines through \code{x}.}
-
-\item{...}{Additional graphical parameters passed to \code{\link[graphics:abline]{graphics::abline()}}.
-When more than one line is drawn, vector graphical parameters are recycled
-across lines using R's usual recycling rules.}
 }
 \value{
 For scalar input, invisibly returns a named numeric vector with
@@ -27,7 +32,10 @@ Any expanded graphical parameters are stored in the
 \code{graphics.parameters} attribute of the returned value.
 }
 \description{
-Draw straight lines through all combinations of \code{x}, \code{y}, and \code{slope}.
+\code{xys_line()} is an S3 generic. The default method draws straight lines
+through all combinations of numeric \code{x}, \code{y}, and \code{slope} values. Other
+packages can provide methods for their own classes while reusing the same
+point/slope convention.
 }
 \examples{
 plot(1:10, 1:10)
