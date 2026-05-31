@@ -51,8 +51,5 @@ rsconnect/
 # Reference material
 reference-code/
 
-# Python bytecode
-tools/__pycache__/
-
 # temporary backups
 *.md.v*.sav

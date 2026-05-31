@@ -2,13 +2,10 @@ PKG := $(shell Rscript -e 'cat(read.dcf("DESCRIPTION")[1,"Package"])')
 VERSION := $(shell Rscript -e 'cat(read.dcf("DESCRIPTION")[1,"Version"])')
 TARBALL := $(PKG)_$(VERSION).tar.gz
 
-.PHONY: help prompt response record.commit document test build check devtools.check vignettes build.vignettes check.vignettes install install.tarball install.fresh install.fresh.vignettes quick spell clean distclean
+.PHONY: help document test build check devtools.check vignettes build.vignettes check.vignettes install install.tarball install.fresh install.fresh.vignettes quick spell clean distclean
 
 help:
 	@echo "Targets:"
-	@echo "  make prompt                  # record current clipboard as the latest Codex prompt"
-	@echo "  make response                # record current clipboard as the latest Codex response summary"
-	@echo "  make record.commit           # record full git hash and subject for the latest entry"
 	@echo "  make document                # regenerate roxygen documentation"
 	@echo "  make test                    # run package-aware testthat tests"
 	@echo "  make build                   # build source tarball without building vignettes"
@@ -25,15 +22,6 @@ help:
 	@echo "  make spell                   # spell-check package documentation"
 	@echo "  make clean                   # remove build/check artefacts"
 	@echo "  make distclean               # clean + remove generated docs"
-
-prompt:
-	pbpaste | python3 tools/codex_workflow.py prompt
-
-response:
-	pbpaste | python3 tools/codex_workflow.py response
-
-record.commit:
-	python3 tools/codex_workflow.py commit
 
 document:
 	Rscript -e 'if (!requireNamespace("roxygen2", quietly = TRUE)) stop("Install the roxygen2 package first: install.packages(\"roxygen2\")"); roxygen2::roxygenise(".", roclets = c("rd","namespace"))'
