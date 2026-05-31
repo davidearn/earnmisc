@@ -64,7 +64,9 @@ useful because \code{tikzDevice::tikz()} itself returns no useful value.
 \code{tikzDevice} is a suggested package, not imported. \code{tikz_open()} fails with
 a clear error if \code{tikzDevice} is not available. The \code{earnmisc} default for
 \code{standAlone} is \code{TRUE}, so generated \code{.tex} files are ready for direct
-compilation in the usual case.
+compilation in the usual case. Metadata are stored internally for
+\code{\link[=tikz_info]{tikz_info()}}; \code{tikz_open()} does not assign \code{use.tikz} or other variables
+in the caller environment.
 }
 \examples{
 \dontrun{

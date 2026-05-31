@@ -36,15 +36,74 @@ test_that("nice_text accepts explicit non-tikz output", {
   expect_length(result, 1)
 })
 
-test_that("use.tikz NULL resolves from the calling environment", {
+test_that("use.tikz NULL resolves TRUE from the calling environment", {
   use.tikz <- TRUE
   input <- "$\\Rn$"
 
   expect_identical(nice_text(input), "$\\mathcal R_0$")
 })
 
-test_that("use.tikz NULL falls back to FALSE", {
+test_that("use.tikz NULL resolves FALSE from the calling environment", {
+  use.tikz <- FALSE
+  input <- "$A_{\\mathrm{i}}$"
+
+  expect_false(identical(nice_text(input, warn = FALSE), input))
+})
+
+test_that("use.tikz NULL falls back to FALSE without caller or tikz device", {
   expect_false(resolve_use_tikz(NULL, new.env(parent = emptyenv())))
+})
+
+test_that("use.tikz NULL uses non-tikz mode on a non-tikz device", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  input <- "$A_{\\mathrm{i}}$"
+  result <- local(nice_text(input, warn = FALSE))
+
+  expect_false(identical(result, input))
+})
+
+test_that("use.tikz NULL detects active tikz metadata", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  current.device <- unname(grDevices::dev.cur())
+  info <- build_tikz_info(
+    arguments = list(file = "stored.tex", filename = "stored.tex", width = 1, height = 1),
+    device = current.device,
+    device.name = "pdf",
+    opened_at = Sys.time(),
+    working_directory = getwd()
+  )
+
+  old.info <- tikz_info(current.device)
+  on.exit({
+    if (is.null(old.info)) {
+      rm(list = as.character(current.device), envir = tikz_info_store$by_device)
+    } else {
+      assign(as.character(current.device), old.info, envir = tikz_info_store$by_device)
+    }
+  }, add = TRUE)
+  assign(as.character(current.device), info, envir = tikz_info_store$by_device)
+
+  input <- "$A_{\\mathrm{i}}$"
+  result <- local(nice_text(input, warn = FALSE))
+
+  expect_identical(result, input)
+})
+
+test_that("invalid caller-level use.tikz is ignored with a warning", {
+  use.tikz <- "yes"
+  input <- "$A_{\\mathrm{i}}$"
+
+  expect_warning(
+    result <- nice_text(input, warn = TRUE),
+    "Ignoring caller-level `use.tikz`"
+  )
+  expect_false(identical(result, input))
 })
 
 test_that("default TeX support files exist", {

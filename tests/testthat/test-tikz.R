@@ -69,6 +69,30 @@ test_that("tikz_open defaults to standAlone TRUE", {
   expect_true(formals(tikz_open)$standAlone)
 })
 
+test_that("tikz_open does not assign use.tikz in the caller", {
+  skip_if_not_installed("tikzDevice")
+
+  tex.file <- tempfile(fileext = ".tex")
+
+  expect_false(exists("use.tikz", inherits = FALSE))
+  tikz_open(tex.file, message = FALSE)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  expect_false(exists("use.tikz", inherits = FALSE))
+})
+
+test_that("tikz_open does not overwrite caller use.tikz", {
+  skip_if_not_installed("tikzDevice")
+
+  use.tikz <- FALSE
+  tex.file <- tempfile(fileext = ".tex")
+
+  tikz_open(tex.file, message = FALSE)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  expect_false(use.tikz)
+})
+
 test_that("tikz_info retrieves stored info by latest and device", {
   info <- build_tikz_info(
     arguments = list(file = "stored.tex", filename = "stored.tex", width = 1, height = 1),

@@ -15,8 +15,10 @@
 #' @param x Character vector of labels.
 #' @param use.tikz Optional logical scalar. If `TRUE`, expand macros and return
 #'   character LaTeX strings. If `FALSE`, preprocess for non-tikz graphics
-#'   devices. If `NULL`, look for a scalar logical object named `use.tikz` in
-#'   the calling environment and otherwise use `FALSE`.
+#'   devices. If `NULL`, first look for a scalar logical object named
+#'   `use.tikz` in the calling environment, then detect whether the active
+#'   graphics device is a tikz device with [dev_is_tikz()], and otherwise use
+#'   `FALSE`.
 #' @param macros.file Optional path to a user TeX macro file. If `NULL`, the
 #'   option `earnmisc.tex_macros_file` is checked.
 #' @param ignore.file Optional path to a user ignore-command file. If `NULL`,
@@ -55,7 +57,7 @@ nice_text <- function(x,
     stop("`x` must be a character vector.", call. = FALSE)
   }
   warn <- validate_logical_scalar(warn, "warn")
-  use.tikz <- resolve_use_tikz(use.tikz, parent.frame())
+  use.tikz <- resolve_use_tikz(use.tikz, parent.frame(), warn = warn)
 
   if (use.tikz) {
     return(nice_text_expand_macros(
@@ -254,15 +256,42 @@ nice_text_expand_macros <- function(x,
   expand_tex_macros(x, macros = macros)
 }
 
-resolve_use_tikz <- function(use.tikz, envir = parent.frame()) {
-  if (is.null(use.tikz) && exists("use.tikz", envir = envir, inherits = FALSE)) {
-    use.tikz <- get("use.tikz", envir = envir, inherits = FALSE)
-  }
-  if (is.null(use.tikz)) {
-    use.tikz <- FALSE
+#' Resolve tikz output mode for nice_text()
+#'
+#' Resolve the `use.tikz` control using an explicit argument value, a
+#' caller-level `use.tikz` variable, or the active graphics device. The caller
+#' variable is used only when it is a non-missing scalar logical value.
+#'
+#' @param use.tikz Explicit argument value supplied to [nice_text()], or `NULL`.
+#' @param envir Calling environment to inspect for a caller-level `use.tikz`.
+#' @param warn Logical scalar. If `TRUE`, warn when a caller-level `use.tikz`
+#'   variable exists but is not a non-missing scalar logical value.
+#'
+#' @return A scalar logical value.
+#' @noRd
+resolve_use_tikz <- function(use.tikz, envir = parent.frame(), warn = TRUE) {
+  warn <- validate_logical_scalar(warn, "warn")
+
+  if (!is.null(use.tikz)) {
+    return(validate_logical_scalar(use.tikz, "use.tikz"))
   }
 
-  validate_logical_scalar(use.tikz, "use.tikz")
+  if (exists("use.tikz", envir = envir, inherits = FALSE)) {
+    caller.use.tikz <- get("use.tikz", envir = envir, inherits = FALSE)
+    if (is.logical(caller.use.tikz) &&
+        length(caller.use.tikz) == 1L &&
+        !is.na(caller.use.tikz)) {
+      return(caller.use.tikz)
+    }
+    if (warn) {
+      warning(
+        "Ignoring caller-level `use.tikz` because it is not a scalar logical value.",
+        call. = FALSE
+      )
+    }
+  }
+
+  isTRUE(dev_is_tikz())
 }
 
 validate_logical_scalar <- function(x, name) {

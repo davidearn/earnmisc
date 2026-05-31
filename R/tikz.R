@@ -11,7 +11,9 @@ tikz_info_store$by_device <- new.env(parent = emptyenv())
 #' `tikzDevice` is a suggested package, not imported. `tikz_open()` fails with
 #' a clear error if `tikzDevice` is not available. The `earnmisc` default for
 #' `standAlone` is `TRUE`, so generated `.tex` files are ready for direct
-#' compilation in the usual case.
+#' compilation in the usual case. Metadata are stored internally for
+#' [tikz_info()]; `tikz_open()` does not assign `use.tikz` or other variables
+#' in the caller environment.
 #'
 #' @param file Output `.tex` file passed to [tikzDevice::tikz()].
 #' @param filename Default filename pattern passed through to

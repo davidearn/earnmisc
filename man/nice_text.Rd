@@ -19,8 +19,10 @@ nice_text(
 
 \item{use.tikz}{Optional logical scalar. If \code{TRUE}, expand macros and return
 character LaTeX strings. If \code{FALSE}, preprocess for non-tikz graphics
-devices. If \code{NULL}, look for a scalar logical object named \code{use.tikz} in
-the calling environment and otherwise use \code{FALSE}.}
+devices. If \code{NULL}, first look for a scalar logical object named
+\code{use.tikz} in the calling environment, then detect whether the active
+graphics device is a tikz device with \code{\link[=dev_is_tikz]{dev_is_tikz()}}, and otherwise use
+\code{FALSE}.}
 
 \item{macros.file}{Optional path to a user TeX macro file. If \code{NULL}, the
 option \code{earnmisc.tex_macros_file} is checked.}
