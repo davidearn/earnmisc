@@ -92,7 +92,7 @@ x <- cbind(
 )
 x <- stats::ts(x)
 info <- mts_pp_plot(x, h.var = "sin", v.var = "cos")
-mts_pp_lines(x, plot.info = info, lty = 2)
+info$pairs
 
 labels <- c(sin = "$s$", cos = "$c$")
 mts_pp_plot(x, h.var = "sin", v.var = "cos", label.map = labels)

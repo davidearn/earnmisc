@@ -22,6 +22,7 @@ existing phase-plane plot.
 time <- seq(0, 2 * pi, length.out = 100)
 x <- stats::ts(cbind(sin = sin(time), cos = cos(time)))
 info <- pp_plot(x, h.var = "sin", v.var = "cos")
-pp_lines(x, plot.info = info, lty = 2)
+y <- stats::ts(cbind(sin = 0.8 * sin(time), cos = 0.8 * cos(time)))
+pp_lines(y, plot.info = info, lty = 2)
 
 }

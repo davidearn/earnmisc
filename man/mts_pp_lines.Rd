@@ -58,6 +58,7 @@ time <- seq(0, 2 * pi, length.out = 100)
 x <- stats::ts(cbind(sin = sin(time), cos = cos(time)))
 y <- stats::ts(cbind(sin = 0.9 * sin(time), cos = 0.9 * cos(time)))
 info <- mts_pp_plot(x, h.var = "sin", v.var = "cos")
+# Overlay a second, smaller trajectory.
 info <- mts_pp_lines(y, plot.info = info, col = "red", lty = 2)
 
 }
