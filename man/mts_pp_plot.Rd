@@ -21,6 +21,7 @@ mts_pp_plot(
   type = "l",
   axes = TRUE,
   frame.plot = TRUE,
+  las = 1,
   ...
 )
 
@@ -61,6 +62,10 @@ ranges for every phase-plane panel.}
 pair name such as \code{"x-y"}.}
 
 \item{axes, frame.plot}{Logical values passed to \code{\link[graphics:plot.default]{graphics::plot.default()}}.}
+
+\item{las}{Axis tick-label orientation passed to
+\code{\link[graphics:plot.default]{graphics::plot.default()}}. The default \code{las = 1} draws horizontal tick
+labels.}
 
 \item{...}{Additional arguments passed to \code{\link[graphics:plot.default]{graphics::plot.default()}}.}
 }

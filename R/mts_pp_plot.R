@@ -76,6 +76,9 @@ pp_lines <- function(x, ...) {
 #'   `lty`, and `lwd` may be scalar, vectorised by phase-plane pair, or named by
 #'   pair name such as `"x-y"`.
 #' @param axes,frame.plot Logical values passed to [graphics::plot.default()].
+#' @param las Axis tick-label orientation passed to
+#'   [graphics::plot.default()]. The default `las = 1` draws horizontal tick
+#'   labels.
 #' @param ... Additional arguments passed to [graphics::plot.default()].
 #'
 #' @return Invisibly returns an `earnmisc_pp_plot_info` list containing at least
@@ -126,6 +129,7 @@ mts_pp_plot <- function(
   type = "l",
   axes = TRUE,
   frame.plot = TRUE,
+  las = 1,
   ...
 ) {
   max.panels <- validate_pp_max_panels(max.panels)
@@ -187,6 +191,7 @@ mts_pp_plot <- function(
       lwd = graphics.parameters$lwd[[panel.index]],
       axes = axes,
       frame.plot = frame.plot,
+      las = las,
       ...
     )
 
@@ -219,13 +224,15 @@ mts_pp_plot <- function(
     mfg = mfg,
     xlim = xlim.resolved,
     ylim = ylim.resolved,
+    las = las,
     labels = labels,
     panels = make_pp_panel_metadata(
       pair.data,
       mfg = mfg,
       usr = usr,
       xlim = xlim.resolved,
-      ylim = ylim.resolved
+      ylim = ylim.resolved,
+      las = las
     ),
     device = unname(grDevices::dev.cur()),
     created_at = Sys.time(),
@@ -767,10 +774,12 @@ validate_pp_axis_override <- function(value, argument.name) {
 #'
 #' @param pair.data Resolved pair data.
 #' @param mfg,usr,xlim,ylim Panel graphics metadata.
+#' @param las Axis tick-label orientation, or `NULL` when no plot axes were
+#'   drawn by [mts_pp_plot()].
 #'
 #' @return A named list of panel metadata.
 #' @noRd
-make_pp_panel_metadata <- function(pair.data, mfg, usr, xlim, ylim) {
+make_pp_panel_metadata <- function(pair.data, mfg, usr, xlim, ylim, las = NULL) {
   panels <- vector("list", nrow(pair.data))
   for (index in seq_len(nrow(pair.data))) {
     panels[[index]] <- list(
@@ -783,7 +792,8 @@ make_pp_panel_metadata <- function(pair.data, mfg, usr, xlim, ylim) {
       mfg = mfg[[index]],
       usr = usr[[index]],
       xlim = xlim[[index]],
-      ylim = ylim[[index]]
+      ylim = ylim[[index]],
+      las = las
     )
   }
   names(panels) <- as.character(pair.data$panel.index)

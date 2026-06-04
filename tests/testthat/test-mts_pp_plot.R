@@ -139,6 +139,26 @@ test_that("mts_pp_plot accepts explicit axis limits without duplicate plot argum
   )
 })
 
+test_that("mts_pp_plot defaults axis tick labels to las one and allows override", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  time <- seq(0, 2 * pi, length.out = 100)
+  x <- stats::ts(cbind(
+    sin = sin(time),
+    cos = cos(time)
+  ))
+
+  expect_no_error(default <- mts_pp_plot(x, h.var = "sin", v.var = "cos"))
+  expect_identical(default$las, 1)
+  expect_identical(default$panels[["1"]]$las, 1)
+
+  expect_no_error(override <- mts_pp_plot(x, h.var = "sin", v.var = "cos", las = 2))
+  expect_identical(override$las, 2)
+  expect_identical(override$panels[["1"]]$las, 2)
+})
+
 test_that("phase-plane drawing uses plain numeric column values", {
   time <- seq(0, 2 * pi, length.out = 100)
   x <- stats::ts(cbind(
