@@ -21,11 +21,12 @@
 #'   `"centre"` and `"center"` place it at the centre. `"end"` places it just
 #'   inside the top end of the y-axis using [graphics::text()].
 #' @param x.at,y.at Optional explicit user-coordinate positions. `x.at`
-#'   overrides the fractional horizontal position for `xlab`; `y.at` overrides
-#'   the fractional vertical position for `ylab`.
-#' @param x.frac,y.frac Fractions of the current plotting range used for
-#'   along-axis placement. For example, `x.pos = "right"` uses `x.frac`, while
-#'   `x.pos = "left"` uses `1 - x.frac`.
+#'   overrides the default tick-based horizontal position for `xlab`; `y.at`
+#'   overrides the default tick-based vertical position for `ylab`.
+#' @param x.frac,y.frac Fractions of the current plotting range used as
+#'   fallbacks for along-axis placement when fewer than two usable tick marks
+#'   are available. For example, `x.pos = "right"` falls back to `x.frac`, while
+#'   `x.pos = "left"` falls back to `1 - x.frac`.
 #' @param x.end.offset,y.end.offset Fractions of the current plotting range used
 #'   to move axis-end labels just inside the plot region. This avoids clipping
 #'   and avoids requiring extra margins.
@@ -41,8 +42,9 @@
 #'   [graphics::text()], such as `font`, `adj`, or `xpd`.
 #'
 #' @return Invisibly returns an `earnmisc_axis_labels_info` list containing the
-#'   original and rendered labels, resolved positions, drawing method for each
-#'   label, graphical settings, current `usr`, and log-axis state.
+#'   original and rendered labels, resolved positions, placement source, tick
+#'   values used for tick-based placement, drawing method for each label,
+#'   graphical settings, current `usr`, and log-axis state.
 #'
 #' @details
 #' For `x.pos = "right"`, `"left"`, `"centre"`, and `"center"`, the horizontal
@@ -50,6 +52,11 @@
 #' `"bottom"`, `"centre"`, and `"center"`, the vertical label is drawn on side 2
 #' with [graphics::mtext()]. These labels use `line = par("mgp")[2]` by default,
 #' matching the tick-label line and avoiding extra margin requirements.
+#' `"right"` and `"top"` default to the midpoint between the largest two usable
+#' tick marks on that axis. `"left"` and `"bottom"` use the midpoint between the
+#' smallest two usable tick marks. If fewer than two usable ticks are available,
+#' `x.frac` or `y.frac` supplies the fallback position. Explicit `x.at` and
+#' `y.at` always override tick and fractional placement.
 #'
 #' For `x.pos = "end"` and `y.pos = "end"`, labels are drawn with
 #' [graphics::text()] inside the plot region. The x-axis end label is placed
@@ -164,6 +171,10 @@ axis_labels <- function(
     y.pos = y.pos,
     x.at = x.info$at,
     y.at = y.info$at,
+    x.placement.source = x.info$placement.source,
+    y.placement.source = y.info$placement.source,
+    x.tick.values = axis_label_tick_values(x.info),
+    y.tick.values = axis_label_tick_values(y.info),
     x.frac = x.frac,
     y.frac = y.frac,
     x.end.offset = x.end.offset,
@@ -374,6 +385,9 @@ draw_axis_label <- function(axis,
       cex = cex,
       las = las,
       col = col,
+      placement.source = NA_character_,
+      tick.lower = NA_real_,
+      tick.upper = NA_real_,
       drawn = FALSE
     ))
   }
@@ -409,26 +423,28 @@ draw_axis_label <- function(axis,
       cex = cex,
       las = las,
       col = col,
+      placement.source = if (is.null(at)) "end" else "explicit",
+      tick.lower = NA_real_,
+      tick.upper = NA_real_,
       drawn = TRUE
     ))
   }
 
   side <- if (identical(axis, "x")) 1L else 2L
-  at <- if (is.null(at)) {
-    axis_label_fraction_coordinate(
-      usr = usr,
-      axis = axis,
-      fraction = axis_label_position_fraction(position, frac),
-      log.axis = axis.log
-    )
-  } else {
-    at
-  }
+  placement <- resolve_axis_label_at(
+    axis = axis,
+    side = side,
+    position = position,
+    at = at,
+    frac = frac,
+    usr = usr,
+    log.axis = axis.log
+  )
   graphics::mtext(
     text = label,
     side = side,
     line = line,
-    at = at,
+    at = placement$at,
     las = las,
     cex = cex,
     col = col,
@@ -441,13 +457,16 @@ draw_axis_label <- function(axis,
     position = position,
     method = "mtext",
     side = side,
-    at = at,
-    x = if (identical(axis, "x")) at else NA_real_,
-    y = if (identical(axis, "y")) at else NA_real_,
+    at = placement$at,
+    x = if (identical(axis, "x")) placement$at else NA_real_,
+    y = if (identical(axis, "y")) placement$at else NA_real_,
     line = line,
     cex = cex,
     las = las,
     col = col,
+    placement.source = placement$placement.source,
+    tick.lower = placement$tick.lower,
+    tick.upper = placement$tick.upper,
     drawn = TRUE
   )
 }
@@ -468,6 +487,9 @@ axis_label_row <- function(axis,
                            cex,
                            las,
                            col,
+                           placement.source,
+                           tick.lower,
+                           tick.upper,
                            drawn) {
   data.frame(
     axis = axis,
@@ -482,9 +504,154 @@ axis_label_row <- function(axis,
     cex = cex,
     las = las,
     col = as.character(col),
+    placement.source = placement.source,
+    tick.lower = tick.lower,
+    tick.upper = tick.upper,
     drawn = drawn,
     stringsAsFactors = FALSE
   )
+}
+
+#' Resolve the axis coordinate for an along-axis label
+#'
+#' @param axis Axis name.
+#' @param side Base graphics axis side.
+#' @param position Normalised non-end position.
+#' @param at Optional explicit coordinate.
+#' @param frac Fallback fractional position.
+#' @param usr Current `par("usr")`.
+#' @param log.axis Log-axis flag.
+#'
+#' @return List with resolved coordinate, placement source, and tick metadata.
+#' @noRd
+resolve_axis_label_at <- function(axis, side, position, at, frac, usr, log.axis) {
+  if (!is.null(at)) {
+    return(list(
+      at = at,
+      placement.source = "explicit",
+      tick.lower = NA_real_,
+      tick.upper = NA_real_
+    ))
+  }
+
+  if (!identical(position, "centre")) {
+    tick.at <- axis_label_tick_midpoint(
+      ticks = axis_label_usable_ticks(
+        side = side,
+        axis = axis,
+        usr = usr,
+        log.axis = log.axis
+      ),
+      position = position,
+      log.axis = log.axis
+    )
+    if (!is.null(tick.at)) {
+      return(tick.at)
+    }
+  }
+
+  list(
+    at = axis_label_fraction_coordinate(
+      usr = usr,
+      axis = axis,
+      fraction = axis_label_position_fraction(position, frac),
+      log.axis = log.axis
+    ),
+    placement.source = "fraction",
+    tick.lower = NA_real_,
+    tick.upper = NA_real_
+  )
+}
+
+#' Return usable tick positions for axis-label placement
+#'
+#' @param side Base graphics axis side.
+#' @param axis Axis name.
+#' @param usr Current `par("usr")`.
+#' @param log.axis Log-axis flag.
+#'
+#' @return Sorted numeric vector of finite visible tick values.
+#' @noRd
+axis_label_usable_ticks <- function(side, axis, usr, log.axis) {
+  ticks <- graphics::axTicks(side)
+  if (length(ticks) == 0L) {
+    return(numeric())
+  }
+
+  limits <- axis_label_visible_limits(usr = usr, axis = axis, log.axis = log.axis)
+  ticks <- ticks[
+    is.finite(ticks) &
+      ticks >= min(limits) &
+      ticks <= max(limits)
+  ]
+  if (log.axis) {
+    ticks <- ticks[ticks > 0]
+  }
+  sort(unique(ticks))
+}
+
+#' Return visible axis limits in ordinary user coordinates
+#'
+#' @param usr Current `par("usr")`.
+#' @param axis Axis name.
+#' @param log.axis Log-axis flag.
+#'
+#' @return Numeric vector of length two.
+#' @noRd
+axis_label_visible_limits <- function(usr, axis, log.axis) {
+  limits <- if (identical(axis, "x")) usr[1:2] else usr[3:4]
+  if (log.axis) {
+    return(10^limits)
+  }
+  limits
+}
+
+#' Return a midpoint between end ticks
+#'
+#' @param ticks Usable tick values.
+#' @param position Normalised position.
+#' @param log.axis Log-axis flag.
+#'
+#' @return `NULL` or tick-placement metadata.
+#' @noRd
+axis_label_tick_midpoint <- function(ticks, position, log.axis) {
+  if (length(ticks) < 2L) {
+    return(NULL)
+  }
+
+  tick.pair <- if (position %in% c("right", "top")) {
+    ticks[(length(ticks) - 1L):length(ticks)]
+  } else if (position %in% c("left", "bottom")) {
+    ticks[1:2]
+  } else {
+    return(NULL)
+  }
+
+  midpoint <- if (log.axis) {
+    10^mean(log10(tick.pair))
+  } else {
+    mean(tick.pair)
+  }
+
+  list(
+    at = midpoint,
+    placement.source = "ticks",
+    tick.lower = tick.pair[[1L]],
+    tick.upper = tick.pair[[2L]]
+  )
+}
+
+#' Return tick values from one label metadata row
+#'
+#' @param label.info One-row label metadata.
+#'
+#' @return Numeric vector of tick values used for placement, or empty vector.
+#' @noRd
+axis_label_tick_values <- function(label.info) {
+  if (!identical(label.info$placement.source[[1L]], "ticks")) {
+    return(numeric())
+  }
+  c(label.info$tick.lower[[1L]], label.info$tick.upper[[1L]])
 }
 
 #' Resolve a positional fraction

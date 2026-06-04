@@ -69,6 +69,17 @@ capture_axis_label_calls <- function(expr) {
   )
 }
 
+axis_label_test_ticks <- function(side) {
+  usr <- graphics::par("usr")
+  ticks <- graphics::axTicks(side)
+  if (side == 1L) {
+    ticks <- ticks[is.finite(ticks) & ticks >= usr[[1L]] & ticks <= usr[[2L]]]
+  } else {
+    ticks <- ticks[is.finite(ticks) & ticks >= usr[[3L]] & ticks <= usr[[4L]]]
+  }
+  sort(unique(ticks))
+}
+
 test_that("axis_labels is available", {
   expect_true(is.function(axis_labels))
 })
@@ -90,8 +101,12 @@ test_that("axis_labels places x and y labels through mtext by default", {
   out <- with_axis_labels_pdf({
     graphics::plot(0:1, 0:1, xlab = "", ylab = "", las = 1)
     expected.line <- graphics::par("mgp")[2]
+    expected.x.ticks <- tail(axis_label_test_ticks(1L), 2L)
+    expected.y.ticks <- tail(axis_label_test_ticks(2L), 2L)
     captured <- capture_axis_label_calls(axis_labels("$x$", "$y$", use.tikz = TRUE))
     captured$expected.line <- expected.line
+    captured$expected.x.ticks <- expected.x.ticks
+    captured$expected.y.ticks <- expected.y.ticks
     captured
   })
 
@@ -102,6 +117,13 @@ test_that("axis_labels places x and y labels through mtext by default", {
   expect_equal(info$x.pos, "right")
   expect_equal(info$y.pos, "top")
   expect_equal(info$labels$method, c("mtext", "mtext"))
+  expect_equal(info$labels$placement.source, c("ticks", "ticks"))
+  expect_equal(info$x.placement.source, "ticks")
+  expect_equal(info$y.placement.source, "ticks")
+  expect_equal(info$x.tick.values, out$expected.x.ticks)
+  expect_equal(info$y.tick.values, out$expected.y.ticks)
+  expect_equal(info$x.at, mean(out$expected.x.ticks))
+  expect_equal(info$y.at, mean(out$expected.y.ticks))
   expect_true(all(is.finite(info$labels$at)))
   expect_length(out$mtext, 2L)
   expect_length(out$text, 0L)
@@ -111,8 +133,39 @@ test_that("axis_labels places x and y labels through mtext by default", {
   expect_equal(out$mtext[[2L]]$side, 2L)
   expect_equal(out$mtext[[1L]]$line, out$expected.line)
   expect_equal(out$mtext[[2L]]$line, out$expected.line)
+  expect_equal(out$mtext[[1L]]$at, mean(out$expected.x.ticks))
+  expect_equal(out$mtext[[2L]]$at, mean(out$expected.y.ticks))
   expect_equal(out$mtext[[1L]]$las, 1)
   expect_equal(out$mtext[[2L]]$las, 1)
+})
+
+test_that("axis_labels uses first tick midpoint for left and bottom positions", {
+  out <- with_axis_labels_pdf({
+    graphics::plot(0:10, 0:10, xlab = "", ylab = "", las = 1)
+    expected.x.ticks <- head(axis_label_test_ticks(1L), 2L)
+    expected.y.ticks <- head(axis_label_test_ticks(2L), 2L)
+    captured <- capture_axis_label_calls(axis_labels(
+      "$x$",
+      "$y$",
+      x.pos = "left",
+      y.pos = "bottom",
+      use.tikz = TRUE
+    ))
+    captured$expected.x.ticks <- expected.x.ticks
+    captured$expected.y.ticks <- expected.y.ticks
+    captured
+  })
+
+  info <- out$value
+  expect_equal(info$x.pos, "left")
+  expect_equal(info$y.pos, "bottom")
+  expect_equal(info$labels$placement.source, c("ticks", "ticks"))
+  expect_equal(info$x.tick.values, out$expected.x.ticks)
+  expect_equal(info$y.tick.values, out$expected.y.ticks)
+  expect_equal(info$x.at, mean(out$expected.x.ticks))
+  expect_equal(info$y.at, mean(out$expected.y.ticks))
+  expect_equal(out$mtext[[1L]]$at, mean(out$expected.x.ticks))
+  expect_equal(out$mtext[[2L]]$at, mean(out$expected.y.ticks))
 })
 
 test_that("axis_labels supports axis-end labels through text", {
@@ -131,6 +184,7 @@ test_that("axis_labels supports axis-end labels through text", {
   info <- out$value
   expect_equal(info$labels$method, c("text", "text"))
   expect_equal(info$labels$position, c("end", "end"))
+  expect_equal(info$labels$placement.source, c("end", "end"))
   expect_true(all(is.finite(info$labels$x)))
   expect_true(all(is.finite(info$labels$y)))
   expect_length(out$mtext, 0L)
@@ -157,6 +211,11 @@ test_that("axis_labels explicit at values override along-axis fractions", {
   expect_equal(info$x.at, 0.25)
   expect_equal(info$y.at, 0.75)
   expect_equal(info$labels$at, c(0.25, 0.75))
+  expect_equal(info$labels$placement.source, c("explicit", "explicit"))
+  expect_equal(info$x.placement.source, "explicit")
+  expect_equal(info$y.placement.source, "explicit")
+  expect_length(info$x.tick.values, 0L)
+  expect_length(info$y.tick.values, 0L)
   expect_equal(out$mtext[[1L]]$at, 0.25)
   expect_equal(out$mtext[[2L]]$at, 0.75)
 })
@@ -174,6 +233,8 @@ test_that("axis_labels treats center and centre as synonyms", {
   expect_equal(values$centre$x.at, values$center$x.at)
   expect_equal(values$centre$labels$method, c("mtext", "none"))
   expect_equal(values$center$labels$method, c("mtext", "none"))
+  expect_equal(values$centre$x.placement.source, "fraction")
+  expect_equal(values$center$x.placement.source, "fraction")
 })
 
 test_that("axis_labels expands nice_text macros for tikz labels", {

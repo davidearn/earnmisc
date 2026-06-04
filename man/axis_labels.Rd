@@ -39,12 +39,13 @@ along the left tick-label margin near the corresponding end of the axis.
 inside the top end of the y-axis using \code{\link[graphics:text]{graphics::text()}}.}
 
 \item{x.at, y.at}{Optional explicit user-coordinate positions. \code{x.at}
-overrides the fractional horizontal position for \code{xlab}; \code{y.at} overrides
-the fractional vertical position for \code{ylab}.}
+overrides the default tick-based horizontal position for \code{xlab}; \code{y.at}
+overrides the default tick-based vertical position for \code{ylab}.}
 
-\item{x.frac, y.frac}{Fractions of the current plotting range used for
-along-axis placement. For example, \code{x.pos = "right"} uses \code{x.frac}, while
-\code{x.pos = "left"} uses \code{1 - x.frac}.}
+\item{x.frac, y.frac}{Fractions of the current plotting range used as
+fallbacks for along-axis placement when fewer than two usable tick marks
+are available. For example, \code{x.pos = "right"} falls back to \code{x.frac}, while
+\code{x.pos = "left"} falls back to \code{1 - x.frac}.}
 
 \item{x.end.offset, y.end.offset}{Fractions of the current plotting range used
 to move axis-end labels just inside the plot region. This avoids clipping
@@ -68,8 +69,9 @@ The default \code{par("mgp")[2]} aligns labels with numerical tick labels.}
 }
 \value{
 Invisibly returns an \code{earnmisc_axis_labels_info} list containing the
-original and rendered labels, resolved positions, drawing method for each
-label, graphical settings, current \code{usr}, and log-axis state.
+original and rendered labels, resolved positions, placement source, tick
+values used for tick-based placement, drawing method for each label,
+graphical settings, current \code{usr}, and log-axis state.
 }
 \description{
 Add TeX-aware axis labels to the current base graphics plot without relying
@@ -87,6 +89,11 @@ label is drawn on side 1 with \code{\link[graphics:mtext]{graphics::mtext()}}. F
 \code{"bottom"}, \code{"centre"}, and \code{"center"}, the vertical label is drawn on side 2
 with \code{\link[graphics:mtext]{graphics::mtext()}}. These labels use \code{line = par("mgp")[2]} by default,
 matching the tick-label line and avoiding extra margin requirements.
+\code{"right"} and \code{"top"} default to the midpoint between the largest two usable
+tick marks on that axis. \code{"left"} and \code{"bottom"} use the midpoint between the
+smallest two usable tick marks. If fewer than two usable ticks are available,
+\code{x.frac} or \code{y.frac} supplies the fallback position. Explicit \code{x.at} and
+\code{y.at} always override tick and fractional placement.
 
 For \code{x.pos = "end"} and \code{y.pos = "end"}, labels are drawn with
 \code{\link[graphics:text]{graphics::text()}} inside the plot region. The x-axis end label is placed
