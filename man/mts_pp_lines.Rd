@@ -27,7 +27,10 @@ mts_pp_lines(
 coercible to a numeric matrix.}
 
 \item{h.var, v.var, pairs}{Pair selectors used only when \code{plot.info} is \code{NULL}.
-They follow the same rules as \code{\link[=mts_pp_plot]{mts_pp_plot()}}.}
+They follow the same rules as \code{\link[=mts_pp_plot]{mts_pp_plot()}} when supplied. Without
+\code{plot.info}, \code{mts_pp_lines()} intentionally does not default to all
+unordered pairs; multi-column objects require \code{pairs} or both \code{h.var} and
+\code{v.var}.}
 
 \item{plot.info}{Optional metadata returned by \code{\link[=mts_pp_plot]{mts_pp_plot()}}. If supplied,
 overlays use the recorded pairs and panels.}
@@ -51,14 +54,18 @@ Invisibly returns an updated \code{earnmisc_pp_plot_info} object.
 Add one or more phase-plane trajectories to existing panels created by
 \code{\link[=mts_pp_plot]{mts_pp_plot()}}. Passing \code{plot.info} is recommended for multi-panel overlays
 because it reuses the original pair ordering, panel layout, and coordinate
-ranges.
+ranges. If \code{plot.info} is supplied, the pairs recorded in \code{plot.info} are used
+by default.
 }
 \examples{
 time <- seq(0, 2 * pi, length.out = 100)
-x <- stats::ts(cbind(sin = sin(time), cos = cos(time)))
-y <- stats::ts(cbind(sin = 0.9 * sin(time), cos = 0.9 * cos(time)))
+x <- stats::ts(cbind(
+  sin = sin(time),
+  cos = cos(time),
+  decay = exp(-time / 4)
+))
 info <- mts_pp_plot(x, h.var = "sin", v.var = "cos")
 # Overlay a second, smaller trajectory.
-info <- mts_pp_lines(y, plot.info = info, col = "red", lty = 2)
+info <- mts_pp_lines(0.7 * x, plot.info = info, col = "red", lty = 2)
 
 }

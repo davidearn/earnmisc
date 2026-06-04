@@ -154,8 +154,8 @@ mts_pp_plot <- function(
   ylim <- vector("list", nrow(pair.data))
 
   for (panel.index in seq_len(nrow(pair.data))) {
-    h.values <- mts.data$matrix[, pair.data$h.column[[panel.index]]]
-    v.values <- mts.data$matrix[, pair.data$v.column[[panel.index]]]
+    h.values <- pp_column_values(mts.data$matrix, pair.data$h.column[[panel.index]])
+    v.values <- pp_column_values(mts.data$matrix, pair.data$v.column[[panel.index]])
     xlim[[panel.index]] <- pp_axis_range(h.values, pair.names[[panel.index]], "horizontal")
     ylim[[panel.index]] <- pp_axis_range(v.values, pair.names[[panel.index]], "vertical")
 
@@ -220,12 +220,16 @@ mts_pp_plot <- function(
 #' Add one or more phase-plane trajectories to existing panels created by
 #' [mts_pp_plot()]. Passing `plot.info` is recommended for multi-panel overlays
 #' because it reuses the original pair ordering, panel layout, and coordinate
-#' ranges.
+#' ranges. If `plot.info` is supplied, the pairs recorded in `plot.info` are used
+#' by default.
 #'
 #' @param x Overlay multivariate time-series object, or an object safely
 #'   coercible to a numeric matrix.
 #' @param h.var,v.var,pairs Pair selectors used only when `plot.info` is `NULL`.
-#'   They follow the same rules as [mts_pp_plot()].
+#'   They follow the same rules as [mts_pp_plot()] when supplied. Without
+#'   `plot.info`, `mts_pp_lines()` intentionally does not default to all
+#'   unordered pairs; multi-column objects require `pairs` or both `h.var` and
+#'   `v.var`.
 #' @param plot.info Optional metadata returned by [mts_pp_plot()]. If supplied,
 #'   overlays use the recorded pairs and panels.
 #' @param label.map Optional named character vector or named list mapping column
@@ -241,11 +245,14 @@ mts_pp_plot <- function(
 #'
 #' @examples
 #' time <- seq(0, 2 * pi, length.out = 100)
-#' x <- stats::ts(cbind(sin = sin(time), cos = cos(time)))
-#' y <- stats::ts(cbind(sin = 0.9 * sin(time), cos = 0.9 * cos(time)))
+#' x <- stats::ts(cbind(
+#'   sin = sin(time),
+#'   cos = cos(time),
+#'   decay = exp(-time / 4)
+#' ))
 #' info <- mts_pp_plot(x, h.var = "sin", v.var = "cos")
 #' # Overlay a second, smaller trajectory.
-#' info <- mts_pp_lines(y, plot.info = info, col = "red", lty = 2)
+#' info <- mts_pp_lines(0.7 * x, plot.info = info, col = "red", lty = 2)
 #'
 #' @export
 mts_pp_lines <- function(
@@ -265,7 +272,7 @@ mts_pp_lines <- function(
   mts.data <- as_mts_matrix(x)
 
   if (is.null(plot.info)) {
-    pair.data <- resolve_pp_pairs(
+    pair.data <- resolve_pp_line_pairs(
       h.var = h.var,
       v.var = v.var,
       pairs = pairs,
@@ -324,8 +331,8 @@ mts_pp_lines <- function(
       graphics::par(usr = plot.info$usr[[panel.index]])
     }
     graphics::lines(
-      x = mts.data$matrix[, pair.data$h.column[[panel.index]]],
-      y = mts.data$matrix[, pair.data$v.column[[panel.index]]],
+      x = pp_column_values(mts.data$matrix, pair.data$h.column[[panel.index]]),
+      y = pp_column_values(mts.data$matrix, pair.data$v.column[[panel.index]]),
       type = type,
       col = graphics.parameters$col[[panel.index]],
       lty = graphics.parameters$lty[[panel.index]],
@@ -349,6 +356,56 @@ mts_pp_lines <- function(
   )
 
   invisible(plot.info)
+}
+
+#' Return plain numeric phase-plane column values
+#'
+#' Extract one data column as a plain numeric vector. Subsetting an `mts` object
+#' can preserve a `"ts"` class on the column, which would make
+#' [graphics::lines()] dispatch to `lines.ts()` instead of drawing an ordinary
+#' x-y trajectory.
+#'
+#' @param x Numeric matrix-like object.
+#' @param column Column index.
+#'
+#' @return Plain numeric vector.
+#' @noRd
+pp_column_values <- function(x, column) {
+  as.numeric(x[, column])
+}
+
+#' Resolve phase-plane line overlay pairs
+#'
+#' Resolve pairs for [mts_pp_lines()]. Unlike [mts_pp_plot()], line overlays do
+#' not infer all unordered pairs without plot metadata because there may be only
+#' one current panel.
+#'
+#' @param h.var,v.var,pairs Pair selectors.
+#' @param column.names Column names.
+#' @param ncol Number of columns.
+#'
+#' @return A data frame describing resolved phase-plane pairs.
+#' @noRd
+resolve_pp_line_pairs <- function(h.var = NULL, v.var = NULL, pairs = NULL, column.names, ncol) {
+  if (!is.null(pairs) || !is.null(h.var) || !is.null(v.var)) {
+    return(resolve_pp_pairs(
+      h.var = h.var,
+      v.var = v.var,
+      pairs = pairs,
+      column.names = column.names,
+      ncol = ncol
+    ))
+  }
+
+  if (ncol == 2L) {
+    return(make_pp_pair_data(1L, 2L, column.names = column.names))
+  }
+
+  stop(
+    "`mts_pp_lines()` without `plot.info` requires `pairs`, both `h.var` and `v.var`, ",
+    "or an object with exactly two columns.",
+    call. = FALSE
+  )
 }
 
 #' @rdname mts_pp_plot

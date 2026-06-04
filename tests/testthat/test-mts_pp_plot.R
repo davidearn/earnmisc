@@ -92,30 +92,67 @@ test_that("mts_pp_plot returns metadata and mts_pp_lines overlays with plot info
   expect_equal(nrow(plot.info$curves), 1L)
   expect_identical(plot.info$curves$object.index, 0L)
 
-  updated <- mts_pp_lines(x, plot.info = plot.info, lty = 2)
+  updated <- mts_pp_lines(0.7 * x, plot.info = plot.info, lty = 2)
   expect_s3_class(updated, "earnmisc_pp_plot_info")
+  expect_identical(updated$pairs, plot.info$pairs)
   expect_equal(nrow(updated$curves), 2L)
   expect_identical(updated$curves$object.index, c(0L, 1L))
   expect_identical(updated$curves$pair.name, c("sin-cos", "sin-cos"))
+  expect_identical(updated$curves$h.var, c("sin", "sin"))
+  expect_identical(updated$curves$v.var, c("cos", "cos"))
   expect_identical(updated$curves$lty, c("1", "2"))
 })
 
-test_that("mts_pp_lines can infer pairs without plot info for simple overlays", {
+test_that("phase-plane drawing uses plain numeric column values", {
+  time <- seq(0, 2 * pi, length.out = 100)
+  x <- stats::ts(cbind(
+    sin = sin(time),
+    cos = cos(time)
+  ))
+  mts.data <- as_mts_matrix(x)
+
+  values <- pp_column_values(mts.data$matrix, 1L)
+
+  expect_type(values, "double")
+  expect_false(stats::is.ts(values))
+  expect_false(inherits(values, "mts"))
+})
+
+test_that("mts_pp_lines requires safe pair selection without plot info", {
   pdf.file <- tempfile(fileext = ".pdf")
   grDevices::pdf(pdf.file)
   on.exit(grDevices::dev.off(), add = TRUE)
 
   time <- seq(0, 2 * pi, length.out = 100)
-  x <- stats::ts(cbind(sin = sin(time), cos = cos(time)))
+  x <- stats::ts(cbind(
+    sin = sin(time),
+    cos = cos(time),
+    decay = exp(-time / 4)
+  ))
+  two.column <- x[, c("sin", "cos")]
+
+  expect_error(
+    mts_pp_lines(x),
+    "without `plot.info` requires `pairs`, both `h.var` and `v.var`, or an object with exactly two columns"
+  )
+
   graphics::plot.default(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+  inferred <- mts_pp_lines(two.column, lty = 2)
 
-  plot.info <- mts_pp_lines(x, h.var = "sin", v.var = "cos")
+  expect_s3_class(inferred, "earnmisc_pp_plot_info")
+  expect_identical(inferred$pairs$h.var, "sin")
+  expect_identical(inferred$pairs$v.var, "cos")
+  expect_equal(nrow(inferred$curves), 1L)
+  expect_identical(inferred$curves$object.index, 0L)
 
-  expect_s3_class(plot.info, "earnmisc_pp_plot_info")
-  expect_identical(plot.info$pairs$h.var, "sin")
-  expect_identical(plot.info$pairs$v.var, "cos")
-  expect_equal(nrow(plot.info$curves), 1L)
-  expect_identical(plot.info$curves$object.index, 0L)
+  graphics::plot.default(0, 0, type = "n", xlim = c(-1, 1), ylim = c(-1, 1))
+  explicit <- mts_pp_lines(x, h.var = "sin", v.var = "cos", lty = 2)
+
+  expect_s3_class(explicit, "earnmisc_pp_plot_info")
+  expect_identical(explicit$pairs$h.var, "sin")
+  expect_identical(explicit$pairs$v.var, "cos")
+  expect_equal(nrow(explicit$curves), 1L)
+  expect_identical(explicit$curves$pair.name, "sin-cos")
 })
 
 test_that("phase-plane label map is applied through nice_text", {
