@@ -7,7 +7,8 @@
 #'
 #' * Okabe-Ito colour palette helpers.
 #' * Colour swatch display helpers.
-#' * Small base graphics helpers, including the S3 generic `xys_line()`.
+#' * Small base graphics helpers, including `axis_labels()` and the S3 generic
+#'   `xys_line()`.
 #' * Multivariate time-series plotting helpers, including reserved blank panels,
 #'   `mts_abline()`, `mts_xys_line()`, and `mts_legend()`.
 #' * Base graphics plot metadata helpers.
