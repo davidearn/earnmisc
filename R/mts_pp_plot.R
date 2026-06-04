@@ -69,6 +69,9 @@ pp_lines <- function(x, ...) {
 #'   labels can be used in ordinary and tikz graphics contexts.
 #' @param use.tikz Optional logical scalar passed to [nice_text()]. If `NULL`,
 #'   [nice_text()] resolves the mode from the calling context or active device.
+#' @param xlim,ylim Optional finite numeric length-two ranges. When supplied,
+#'   these override the automatically computed horizontal or vertical axis
+#'   ranges for every phase-plane panel.
 #' @param col,lty,lwd,type Graphical parameters for base trajectories. `col`,
 #'   `lty`, and `lwd` may be scalar, vectorised by phase-plane pair, or named by
 #'   pair name such as `"x-y"`.
@@ -115,6 +118,8 @@ mts_pp_plot <- function(
   max.panels = 16,
   label.map = NULL,
   use.tikz = NULL,
+  xlim = NULL,
+  ylim = NULL,
   col = "black",
   lty = 1,
   lwd = 1,
@@ -124,6 +129,8 @@ mts_pp_plot <- function(
   ...
 ) {
   max.panels <- validate_pp_max_panels(max.panels)
+  xlim.override <- validate_pp_axis_override(xlim, "xlim")
+  ylim.override <- validate_pp_axis_override(ylim, "ylim")
   mts.data <- as_mts_matrix(x)
   pair.data <- resolve_pp_pairs(
     h.var = h.var,
@@ -150,21 +157,29 @@ mts_pp_plot <- function(
 
   usr <- vector("list", nrow(pair.data))
   mfg <- vector("list", nrow(pair.data))
-  xlim <- vector("list", nrow(pair.data))
-  ylim <- vector("list", nrow(pair.data))
+  xlim.resolved <- vector("list", nrow(pair.data))
+  ylim.resolved <- vector("list", nrow(pair.data))
 
   for (panel.index in seq_len(nrow(pair.data))) {
     h.values <- pp_column_values(mts.data$matrix, pair.data$h.column[[panel.index]])
     v.values <- pp_column_values(mts.data$matrix, pair.data$v.column[[panel.index]])
-    xlim[[panel.index]] <- pp_axis_range(h.values, pair.names[[panel.index]], "horizontal")
-    ylim[[panel.index]] <- pp_axis_range(v.values, pair.names[[panel.index]], "vertical")
+    xlim.resolved[[panel.index]] <- if (is.null(xlim.override)) {
+      pp_axis_range(h.values, pair.names[[panel.index]], "horizontal")
+    } else {
+      xlim.override
+    }
+    ylim.resolved[[panel.index]] <- if (is.null(ylim.override)) {
+      pp_axis_range(v.values, pair.names[[panel.index]], "vertical")
+    } else {
+      ylim.override
+    }
 
     graphics::plot.default(
       x = h.values,
       y = v.values,
       type = type,
-      xlim = xlim[[panel.index]],
-      ylim = ylim[[panel.index]],
+      xlim = xlim.resolved[[panel.index]],
+      ylim = ylim.resolved[[panel.index]],
       xlab = labels$h.label[[panel.index]],
       ylab = labels$v.label[[panel.index]],
       col = graphics.parameters$col[[panel.index]],
@@ -202,10 +217,16 @@ mts_pp_plot <- function(
     layout = layout,
     usr = usr,
     mfg = mfg,
-    xlim = xlim,
-    ylim = ylim,
+    xlim = xlim.resolved,
+    ylim = ylim.resolved,
     labels = labels,
-    panels = make_pp_panel_metadata(pair.data, mfg = mfg, usr = usr, xlim = xlim, ylim = ylim),
+    panels = make_pp_panel_metadata(
+      pair.data,
+      mfg = mfg,
+      usr = usr,
+      xlim = xlim.resolved,
+      ylim = ylim.resolved
+    ),
     device = unname(grDevices::dev.cur()),
     created_at = Sys.time(),
     curves = curves
@@ -717,6 +738,29 @@ pp_axis_range <- function(values, pair.name, direction) {
   }
 
   range
+}
+
+#' Validate an optional phase-plane axis range override
+#'
+#' @param value Candidate range.
+#' @param argument.name Argument name for error messages.
+#'
+#' @return `NULL` or a finite numeric vector of length two.
+#' @noRd
+validate_pp_axis_override <- function(value, argument.name) {
+  if (is.null(value)) {
+    return(NULL)
+  }
+
+  if (!is.numeric(value) || length(value) != 2L || anyNA(value) ||
+      any(!is.finite(value))) {
+    stop("`", argument.name, "` must be a finite numeric vector of length two.", call. = FALSE)
+  }
+  if (identical(value[1L], value[2L])) {
+    stop("`", argument.name, "` values must not be identical.", call. = FALSE)
+  }
+
+  as.numeric(value)
 }
 
 #' Make phase-plane panel metadata

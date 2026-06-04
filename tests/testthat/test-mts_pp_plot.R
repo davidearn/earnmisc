@@ -103,6 +103,42 @@ test_that("mts_pp_plot returns metadata and mts_pp_lines overlays with plot info
   expect_identical(updated$curves$lty, c("1", "2"))
 })
 
+test_that("mts_pp_plot accepts explicit axis limits without duplicate plot arguments", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  time <- seq(0, 2 * pi, length.out = 100)
+  x <- stats::ts(cbind(
+    sin = sin(time),
+    cos = cos(time),
+    decay = exp(-time / 4)
+  ))
+
+  plot.info <- mts_pp_plot(
+    x,
+    h.var = c("sin", "cos"),
+    v.var = "decay",
+    xlim = c(-2, 2),
+    ylim = c(0, 1.25)
+  )
+
+  expect_s3_class(plot.info, "earnmisc_pp_plot_info")
+  expect_equal(plot.info$xlim, rep(list(c(-2, 2)), 2L))
+  expect_equal(plot.info$ylim, rep(list(c(0, 1.25)), 2L))
+  expect_equal(plot.info$panels[["1"]]$xlim, c(-2, 2))
+  expect_equal(plot.info$panels[["1"]]$ylim, c(0, 1.25))
+
+  expect_error(
+    mts_pp_plot(x, h.var = "sin", v.var = "cos", xlim = c(0, Inf)),
+    "`xlim` must be a finite numeric vector of length two"
+  )
+  expect_error(
+    mts_pp_plot(x, h.var = "sin", v.var = "cos", ylim = c(1, 1)),
+    "`ylim` values must not be identical"
+  )
+})
+
 test_that("phase-plane drawing uses plain numeric column values", {
   time <- seq(0, 2 * pi, length.out = 100)
   x <- stats::ts(cbind(

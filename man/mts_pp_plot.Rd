@@ -13,6 +13,8 @@ mts_pp_plot(
   max.panels = 16,
   label.map = NULL,
   use.tikz = NULL,
+  xlim = NULL,
+  ylim = NULL,
   col = "black",
   lty = 1,
   lwd = 1,
@@ -49,6 +51,10 @@ labels can be used in ordinary and tikz graphics contexts.}
 
 \item{use.tikz}{Optional logical scalar passed to \code{\link[=nice_text]{nice_text()}}. If \code{NULL},
 \code{\link[=nice_text]{nice_text()}} resolves the mode from the calling context or active device.}
+
+\item{xlim, ylim}{Optional finite numeric length-two ranges. When supplied,
+these override the automatically computed horizontal or vertical axis
+ranges for every phase-plane panel.}
 
 \item{col, lty, lwd, type}{Graphical parameters for base trajectories. \code{col},
 \code{lty}, and \code{lwd} may be scalar, vectorised by phase-plane pair, or named by
