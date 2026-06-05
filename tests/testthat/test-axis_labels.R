@@ -168,6 +168,72 @@ test_that("axis_labels uses first tick midpoint for left and bottom positions", 
   expect_equal(out$mtext[[2L]]$at, mean(out$expected.y.ticks))
 })
 
+test_that("axis_labels works on simple log-axis plots", {
+  for (log.value in c("x", "y", "xy")) {
+    out <- with_axis_labels_pdf({
+      graphics::plot(1:10, 1:10, log = log.value, xlab = "", ylab = "", las = 1)
+      capture_axis_label_calls(axis_labels("$x$", "$y$", use.tikz = TRUE))
+    })
+
+    info <- out$value
+    expect_s3_class(info, "earnmisc_axis_labels_info")
+    expect_equal(info$xlog, grepl("x", log.value, fixed = TRUE))
+    expect_equal(info$ylog, grepl("y", log.value, fixed = TRUE))
+    expect_true(all(is.finite(info$labels$at)))
+    expect_equal(info$labels$method, c("mtext", "mtext"))
+    expect_length(out$mtext, 2L)
+  }
+})
+
+test_that("axis_labels falls back when axTicks fails on restored log usr state", {
+  out <- with_axis_labels_pdf({
+    graphics::plot(1:10, 1:10, log = "xy", xlab = "", ylab = "", las = 1)
+    usr <- graphics::par("usr")
+    graphics::par(usr = usr)
+    ax.errors <- vapply(1:2, function(side) {
+      tryCatch(
+        {
+          graphics::axTicks(side)
+          ""
+        },
+        error = function(error) conditionMessage(error)
+      )
+    }, character(1))
+    captured <- capture_axis_label_calls(axis_labels(
+      "$x$",
+      "$y$",
+      x.pos = "right",
+      y.pos = "top",
+      use.tikz = TRUE
+    ))
+    captured$usr <- usr
+    captured$ax.errors <- ax.errors
+    captured
+  })
+
+  info <- out$value
+  expect_match(out$ax.errors[[1L]], "invalid positive 'axp\\[3\\]'")
+  expect_match(out$ax.errors[[2L]], "invalid positive 'axp\\[3\\]'")
+  expect_equal(info$labels$placement.source, c("fraction", "fraction"))
+  expect_equal(info$x.placement.source, "fraction")
+  expect_equal(info$y.placement.source, "fraction")
+  expect_equal(info$x.at, axis_label_fraction_coordinate(
+    usr = out$usr,
+    axis = "x",
+    fraction = info$x.frac,
+    log.axis = TRUE
+  ))
+  expect_equal(info$y.at, axis_label_fraction_coordinate(
+    usr = out$usr,
+    axis = "y",
+    fraction = info$y.frac,
+    log.axis = TRUE
+  ))
+  expect_length(info$x.tick.values, 0L)
+  expect_length(info$y.tick.values, 0L)
+  expect_length(out$mtext, 2L)
+})
+
 test_that("axis_labels supports axis-end labels through text", {
   out <- with_axis_labels_pdf({
     x <- seq(0, 1, length.out = 100)

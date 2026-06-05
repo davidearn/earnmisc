@@ -573,7 +573,7 @@ resolve_axis_label_at <- function(axis, side, position, at, frac, usr, log.axis)
 #' @return Sorted numeric vector of finite visible tick values.
 #' @noRd
 axis_label_usable_ticks <- function(side, axis, usr, log.axis) {
-  ticks <- graphics::axTicks(side)
+  ticks <- safe_axis_label_ticks(side)
   if (length(ticks) == 0L) {
     return(numeric())
   }
@@ -588,6 +588,20 @@ axis_label_usable_ticks <- function(side, axis, usr, log.axis) {
     ticks <- ticks[ticks > 0]
   }
   sort(unique(ticks))
+}
+
+#' Return axis ticks without exposing low-level graphics errors
+#'
+#' @param side Base graphics axis side.
+#'
+#' @return Numeric vector of tick values, or `NULL` if [graphics::axTicks()]
+#'   cannot compute ticks for the current graphics state.
+#' @noRd
+safe_axis_label_ticks <- function(side) {
+  tryCatch(
+    graphics::axTicks(side),
+    error = function(error) NULL
+  )
 }
 
 #' Return visible axis limits in ordinary user coordinates
