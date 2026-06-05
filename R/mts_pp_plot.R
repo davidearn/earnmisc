@@ -71,7 +71,13 @@ pp_lines <- function(x, ...) {
 #'   [nice_text()] resolves the mode from the calling context or active device.
 #' @param xlim,ylim Optional finite numeric length-two ranges. When supplied,
 #'   these override the automatically computed horizontal or vertical axis
-#'   ranges for every phase-plane panel.
+#'   ranges for every phase-plane panel. Limits for log-scaled axes must be
+#'   strictly positive.
+#' @param log Character scalar passed to [graphics::plot.default()]. When the
+#'   horizontal axis is log-scaled, points with non-positive horizontal values
+#'   are omitted before drawing and range calculation. When the vertical axis is
+#'   log-scaled, points with non-positive vertical values are omitted in the
+#'   same way.
 #' @param col,lty,lwd,type Graphical parameters for base trajectories. `col`,
 #'   `lty`, and `lwd` may be scalar, vectorised by phase-plane pair, or named by
 #'   pair name such as `"x-y"`.
@@ -123,6 +129,7 @@ mts_pp_plot <- function(
   use.tikz = NULL,
   xlim = NULL,
   ylim = NULL,
+  log = "",
   col = "black",
   lty = 1,
   lwd = 1,
@@ -133,8 +140,9 @@ mts_pp_plot <- function(
   ...
 ) {
   max.panels <- validate_pp_max_panels(max.panels)
-  xlim.override <- validate_pp_axis_override(xlim, "xlim")
-  ylim.override <- validate_pp_axis_override(ylim, "ylim")
+  log.axes <- validate_pp_log(log)
+  xlim.override <- validate_pp_axis_override(xlim, "xlim", log.axis = log.axes$x)
+  ylim.override <- validate_pp_axis_override(ylim, "ylim", log.axis = log.axes$y)
   mts.data <- as_mts_matrix(x)
   pair.data <- resolve_pp_pairs(
     h.var = h.var,
@@ -163,27 +171,31 @@ mts_pp_plot <- function(
   mfg <- vector("list", nrow(pair.data))
   xlim.resolved <- vector("list", nrow(pair.data))
   ylim.resolved <- vector("list", nrow(pair.data))
+  point.summary <- vector("list", nrow(pair.data))
 
   for (panel.index in seq_len(nrow(pair.data))) {
     h.values <- pp_column_values(mts.data$matrix, pair.data$h.column[[panel.index]])
     v.values <- pp_column_values(mts.data$matrix, pair.data$v.column[[panel.index]])
+    filtered <- pp_filter_log_points(h.values, v.values, log.axes = log.axes)
+    point.summary[[panel.index]] <- filtered$summary
     xlim.resolved[[panel.index]] <- if (is.null(xlim.override)) {
-      pp_axis_range(h.values, pair.names[[panel.index]], "horizontal")
+      pp_axis_range(filtered$h.range, pair.names[[panel.index]], "horizontal")
     } else {
       xlim.override
     }
     ylim.resolved[[panel.index]] <- if (is.null(ylim.override)) {
-      pp_axis_range(v.values, pair.names[[panel.index]], "vertical")
+      pp_axis_range(filtered$v.range, pair.names[[panel.index]], "vertical")
     } else {
       ylim.override
     }
 
     graphics::plot.default(
-      x = h.values,
-      y = v.values,
+      x = filtered$h.draw,
+      y = filtered$v.draw,
       type = type,
       xlim = xlim.resolved[[panel.index]],
       ylim = ylim.resolved[[panel.index]],
+      log = log.axes$value,
       xlab = labels$h.label[[panel.index]],
       ylab = labels$v.label[[panel.index]],
       col = graphics.parameters$col[[panel.index]],
@@ -209,7 +221,8 @@ mts_pp_plot <- function(
     lwd = graphics.parameters$lwd,
     type = type,
     drawn = TRUE,
-    reason = NA_character_
+    reason = NA_character_,
+    point.summary = point.summary
   )
 
   plot.info <- list(
@@ -224,6 +237,9 @@ mts_pp_plot <- function(
     mfg = mfg,
     xlim = xlim.resolved,
     ylim = ylim.resolved,
+    log = log.axes$value,
+    log.axes = list(x = log.axes$x, y = log.axes$y),
+    point.summary = point.summary,
     las = las,
     labels = labels,
     panels = make_pp_panel_metadata(
@@ -232,7 +248,9 @@ mts_pp_plot <- function(
       usr = usr,
       xlim = xlim.resolved,
       ylim = ylim.resolved,
-      las = las
+      las = las,
+      log = log.axes,
+      point.summary = point.summary
     ),
     device = unname(grDevices::dev.cur()),
     created_at = Sys.time(),
@@ -264,6 +282,10 @@ mts_pp_plot <- function(
 #'   names to display labels. Used only when `plot.info` is `NULL`.
 #' @param use.tikz Optional logical scalar passed to [nice_text()]. Used only
 #'   when `plot.info` is `NULL`.
+#' @param log Optional character scalar used only when `plot.info` is `NULL`.
+#'   When omitted, the current plot's log-axis state is used. When `plot.info`
+#'   is supplied, overlays use the log-axis settings recorded by
+#'   [mts_pp_plot()].
 #' @param col,lty,lwd,type Graphical parameters for overlay trajectories. `col`,
 #'   `lty`, and `lwd` may be scalar, vectorised by phase-plane pair, or named by
 #'   pair name such as `"x-y"`.
@@ -291,6 +313,7 @@ mts_pp_lines <- function(
   plot.info = NULL,
   label.map = NULL,
   use.tikz = NULL,
+  log = NULL,
   col = "red",
   lty = 1,
   lwd = 1,
@@ -300,6 +323,11 @@ mts_pp_lines <- function(
   mts.data <- as_mts_matrix(x)
 
   if (is.null(plot.info)) {
+    log.axes <- if (is.null(log)) {
+      pp_current_log_axes()
+    } else {
+      validate_pp_log(log)
+    }
     pair.data <- resolve_pp_line_pairs(
       h.var = h.var,
       v.var = v.var,
@@ -329,8 +357,11 @@ mts_pp_lines <- function(
       mfg = mfg,
       xlim = xlim,
       ylim = ylim,
+      log = log.axes$value,
+      log.axes = list(x = log.axes$x, y = log.axes$y),
+      point.summary = NULL,
       labels = labels,
-      panels = make_pp_panel_metadata(pair.data, mfg = mfg, usr = usr, xlim = xlim, ylim = ylim),
+      panels = make_pp_panel_metadata(pair.data, mfg = mfg, usr = usr, xlim = xlim, ylim = ylim, log = log.axes),
       device = unname(grDevices::dev.cur()),
       created_at = Sys.time(),
       curves = empty_pp_curve_registry()
@@ -343,6 +374,7 @@ mts_pp_lines <- function(
     }
     pair.data <- resolve_pp_pairs_from_plot_info(plot.info, mts.data)
     pair.names <- plot.info$pair.names
+    log.axes <- pp_plot_info_log_axes(plot.info)
   }
 
   graphics.parameters <- resolve_mts_graphics(
@@ -353,14 +385,21 @@ mts_pp_lines <- function(
     column.names = pair.names
   )
 
+  point.summary <- vector("list", nrow(pair.data))
   for (panel.index in seq_len(nrow(pair.data))) {
     graphics::par(mfg = plot.info$mfg[[panel.index]])
     if (!anyNA(plot.info$usr[[panel.index]])) {
       graphics::par(usr = plot.info$usr[[panel.index]])
     }
+    filtered <- pp_filter_log_points(
+      h.values = pp_column_values(mts.data$matrix, pair.data$h.column[[panel.index]]),
+      v.values = pp_column_values(mts.data$matrix, pair.data$v.column[[panel.index]]),
+      log.axes = log.axes
+    )
+    point.summary[[panel.index]] <- filtered$summary
     graphics::lines(
-      x = pp_column_values(mts.data$matrix, pair.data$h.column[[panel.index]]),
-      y = pp_column_values(mts.data$matrix, pair.data$v.column[[panel.index]]),
+      x = filtered$h.draw,
+      y = filtered$v.draw,
       type = type,
       col = graphics.parameters$col[[panel.index]],
       lty = graphics.parameters$lty[[panel.index]],
@@ -379,7 +418,8 @@ mts_pp_lines <- function(
       lwd = graphics.parameters$lwd,
       type = type,
       drawn = TRUE,
-      reason = NA_character_
+      reason = NA_character_,
+      point.summary = point.summary
     )
   )
 
@@ -747,14 +787,134 @@ pp_axis_range <- function(values, pair.name, direction) {
   range
 }
 
+#' Validate a phase-plane log-axis specification
+#'
+#' @param log Candidate `log` argument.
+#'
+#' @return A list containing canonical log text and x/y logical flags.
+#' @noRd
+validate_pp_log <- function(log) {
+  if (is.null(log)) {
+    log <- ""
+  }
+  if (!is.character(log) || length(log) != 1L || is.na(log)) {
+    stop("`log` must be a character scalar containing only 'x' and/or 'y'.", call. = FALSE)
+  }
+
+  chars <- strsplit(log, "", fixed = TRUE)[[1L]]
+  if (length(chars) == 0L) {
+    chars <- character()
+  }
+  if (!all(chars %in% c("x", "y"))) {
+    stop("`log` must be '', 'x', 'y', or 'xy'.", call. = FALSE)
+  }
+
+  xlog <- "x" %in% chars
+  ylog <- "y" %in% chars
+  list(
+    value = paste0(c(if (xlog) "x", if (ylog) "y"), collapse = ""),
+    x = xlog,
+    y = ylog
+  )
+}
+
+#' Return the current plot log-axis state
+#'
+#' @return A list containing canonical log text and x/y logical flags.
+#' @noRd
+pp_current_log_axes <- function() {
+  xlog <- isTRUE(graphics::par("xlog"))
+  ylog <- isTRUE(graphics::par("ylog"))
+  list(
+    value = paste0(c(if (xlog) "x", if (ylog) "y"), collapse = ""),
+    x = xlog,
+    y = ylog
+  )
+}
+
+#' Resolve log-axis state from phase-plane plot metadata
+#'
+#' @param plot.info Phase-plane plot metadata.
+#'
+#' @return A list containing canonical log text and x/y logical flags.
+#' @noRd
+pp_plot_info_log_axes <- function(plot.info) {
+  if (!is.null(plot.info$log.axes) &&
+      all(c("x", "y") %in% names(plot.info$log.axes))) {
+    xlog <- isTRUE(plot.info$log.axes$x)
+    ylog <- isTRUE(plot.info$log.axes$y)
+    return(list(
+      value = paste0(c(if (xlog) "x", if (ylog) "y"), collapse = ""),
+      x = xlog,
+      y = ylog
+    ))
+  }
+
+  if (!is.null(plot.info$log)) {
+    return(validate_pp_log(plot.info$log))
+  }
+
+  pp_current_log_axes()
+}
+
+#' Omit non-positive phase-plane points for log axes
+#'
+#' @param h.values,v.values Horizontal and vertical point coordinates.
+#' @param log.axes Log-axis metadata from [validate_pp_log()].
+#'
+#' @return List containing draw vectors, range vectors, and count metadata.
+#' @noRd
+pp_filter_log_points <- function(h.values, v.values, log.axes) {
+  if (length(h.values) != length(v.values)) {
+    stop("Phase-plane coordinate vectors must have the same length.", call. = FALSE)
+  }
+
+  omitted.x <- if (isTRUE(log.axes$x)) {
+    !is.na(h.values) & h.values <= 0
+  } else {
+    rep(FALSE, length(h.values))
+  }
+  omitted.y <- if (isTRUE(log.axes$y)) {
+    !is.na(v.values) & v.values <= 0
+  } else {
+    rep(FALSE, length(v.values))
+  }
+  omitted <- omitted.x | omitted.y
+  keep <- !omitted
+
+  h.draw <- h.values
+  v.draw <- v.values
+  h.draw[omitted] <- NA_real_
+  v.draw[omitted] <- NA_real_
+
+  finite.draw <- keep & is.finite(h.values) & is.finite(v.values)
+  summary <- list(
+    n.total = length(h.values),
+    n.kept = sum(keep),
+    n.finite = sum(finite.draw),
+    n.omitted.log = sum(omitted),
+    n.omitted.log.x = sum(omitted.x),
+    n.omitted.log.y = sum(omitted.y)
+  )
+
+  list(
+    h.draw = h.draw,
+    v.draw = v.draw,
+    h.range = h.values[keep],
+    v.range = v.values[keep],
+    summary = summary
+  )
+}
+
 #' Validate an optional phase-plane axis range override
 #'
 #' @param value Candidate range.
 #' @param argument.name Argument name for error messages.
+#' @param log.axis Whether the axis is log-scaled.
 #'
 #' @return `NULL` or a finite numeric vector of length two.
 #' @noRd
-validate_pp_axis_override <- function(value, argument.name) {
+validate_pp_axis_override <- function(value, argument.name, log.axis = FALSE) {
   if (is.null(value)) {
     return(NULL)
   }
@@ -766,6 +926,10 @@ validate_pp_axis_override <- function(value, argument.name) {
   if (identical(value[1L], value[2L])) {
     stop("`", argument.name, "` values must not be identical.", call. = FALSE)
   }
+  if (isTRUE(log.axis) && any(value <= 0)) {
+    stop("`", argument.name, "` values must be strictly positive when the corresponding axis is log-scaled.",
+         call. = FALSE)
+  }
 
   as.numeric(value)
 }
@@ -776,10 +940,19 @@ validate_pp_axis_override <- function(value, argument.name) {
 #' @param mfg,usr,xlim,ylim Panel graphics metadata.
 #' @param las Axis tick-label orientation, or `NULL` when no plot axes were
 #'   drawn by [mts_pp_plot()].
+#' @param log Optional log-axis metadata.
+#' @param point.summary Optional list of point-count metadata.
 #'
 #' @return A named list of panel metadata.
 #' @noRd
-make_pp_panel_metadata <- function(pair.data, mfg, usr, xlim, ylim, las = NULL) {
+make_pp_panel_metadata <- function(pair.data,
+                                   mfg,
+                                   usr,
+                                   xlim,
+                                   ylim,
+                                   las = NULL,
+                                   log = NULL,
+                                   point.summary = NULL) {
   panels <- vector("list", nrow(pair.data))
   for (index in seq_len(nrow(pair.data))) {
     panels[[index]] <- list(
@@ -793,7 +966,10 @@ make_pp_panel_metadata <- function(pair.data, mfg, usr, xlim, ylim, las = NULL) 
       usr = usr[[index]],
       xlim = xlim[[index]],
       ylim = ylim[[index]],
-      las = las
+      las = las,
+      log = if (is.null(log)) NULL else log$value,
+      log.axes = if (is.null(log)) NULL else list(x = log$x, y = log$y),
+      point.summary = if (is.null(point.summary)) NULL else point.summary[[index]]
     )
   }
   names(panels) <- as.character(pair.data$panel.index)
@@ -807,6 +983,7 @@ make_pp_panel_metadata <- function(pair.data, mfg, usr, xlim, ylim, las = NULL) 
 #' @param col,lty,lwd,type Graphical parameters.
 #' @param drawn Logical drawn flag.
 #' @param reason Reason for skipped drawing.
+#' @param point.summary Optional list of point-count metadata.
 #'
 #' @return A data frame suitable for `plot.info$curves`.
 #' @noRd
@@ -817,8 +994,10 @@ make_pp_curve_registry <- function(object.index,
                                    lwd,
                                    type,
                                    drawn,
-                                   reason) {
+                                   reason,
+                                   point.summary = NULL) {
   n <- nrow(pair.data)
+  point.counts <- pp_curve_point_counts(point.summary, n)
   data.frame(
     object.index = as.integer(rep(object.index, n)),
     h.column = as.integer(pair.data$h.column),
@@ -833,8 +1012,42 @@ make_pp_curve_registry <- function(object.index,
     type = as.character(rep(type, n)),
     drawn = as.logical(rep(drawn, n)),
     reason = as.character(rep(reason, n)),
+    n.points = point.counts$n.total,
+    n.plotted = point.counts$n.finite,
+    n.omitted.log = point.counts$n.omitted.log,
+    n.omitted.log.x = point.counts$n.omitted.log.x,
+    n.omitted.log.y = point.counts$n.omitted.log.y,
     stringsAsFactors = FALSE
   )
+}
+
+#' Convert point summaries into curve-registry columns
+#'
+#' @param point.summary Optional list of point-count metadata.
+#' @param n Number of registry rows.
+#'
+#' @return List of integer vectors.
+#' @noRd
+pp_curve_point_counts <- function(point.summary, n) {
+  fields <- c(
+    "n.total",
+    "n.finite",
+    "n.omitted.log",
+    "n.omitted.log.x",
+    "n.omitted.log.y"
+  )
+  if (is.null(point.summary)) {
+    out <- stats::setNames(rep(list(rep(NA_integer_, n)), length(fields)), fields)
+    return(out)
+  }
+  if (length(point.summary) != n) {
+    stop("Point-summary metadata length does not match the number of phase-plane pairs.",
+         call. = FALSE)
+  }
+
+  stats::setNames(lapply(fields, function(field) {
+    vapply(point.summary, function(summary) as.integer(summary[[field]]), integer(1))
+  }), fields)
 }
 
 #' Validate phase-plane plot metadata
@@ -926,6 +1139,11 @@ empty_pp_curve_registry <- function() {
     type = character(),
     drawn = logical(),
     reason = character(),
+    n.points = integer(),
+    n.plotted = integer(),
+    n.omitted.log = integer(),
+    n.omitted.log.x = integer(),
+    n.omitted.log.y = integer(),
     stringsAsFactors = FALSE
   )
 }

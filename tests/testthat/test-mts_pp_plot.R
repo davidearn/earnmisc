@@ -139,6 +139,104 @@ test_that("mts_pp_plot accepts explicit axis limits without duplicate plot argum
   )
 })
 
+test_that("mts_pp_plot omits non-positive values on log axes before ranges", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  y.values <- c(0, -1, 0.001, 0.01, 0.1, 0, 0.3)
+  x <- stats::ts(cbind(
+    h = seq_along(y.values),
+    v = y.values
+  ))
+
+  expect_warning(
+    info <- mts_pp_plot(x, h.var = "h", v.var = "v", log = "y"),
+    NA
+  )
+
+  expect_identical(info$log, "y")
+  expect_false(info$log.axes$x)
+  expect_true(info$log.axes$y)
+  expect_equal(info$ylim[[1L]], range(y.values[y.values > 0]))
+  expect_gt(info$ylim[[1L]][[1L]], 1e-307)
+  expect_equal(info$point.summary[[1L]]$n.omitted.log.y, 3L)
+  expect_equal(info$point.summary[[1L]]$n.omitted.log, 3L)
+  expect_equal(info$point.summary[[1L]]$n.finite, 4L)
+  expect_equal(info$panels[["1"]]$point.summary$n.omitted.log.y, 3L)
+  expect_equal(info$curves$n.omitted.log.y, 3L)
+  expect_equal(info$curves$n.plotted, 4L)
+})
+
+test_that("mts_pp_plot omits non-positive horizontal values on log x axes", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  h.values <- c(-1, 0, 0.1, 1, 10)
+  x <- stats::ts(cbind(
+    h = h.values,
+    v = c(1, 2, 3, 4, 5)
+  ))
+
+  expect_warning(
+    info <- mts_pp_plot(x, h.var = "h", v.var = "v", log = "x"),
+    NA
+  )
+
+  expect_identical(info$log, "x")
+  expect_true(info$log.axes$x)
+  expect_false(info$log.axes$y)
+  expect_equal(info$xlim[[1L]], range(h.values[h.values > 0]))
+  expect_equal(info$point.summary[[1L]]$n.omitted.log.x, 2L)
+  expect_equal(info$curves$n.omitted.log.x, 2L)
+})
+
+test_that("mts_pp_lines reuses log filtering from plot metadata", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  base <- stats::ts(cbind(
+    h = seq_len(5),
+    v = c(0.01, 0.1, 1, 0.1, 0.01)
+  ))
+  overlay <- stats::ts(cbind(
+    h = seq_len(5),
+    v = c(0, 0.02, 0.2, -1, 0.02)
+  ))
+
+  info <- mts_pp_plot(base, h.var = "h", v.var = "v", log = "y")
+  expect_warning(
+    updated <- mts_pp_lines(overlay, plot.info = info),
+    NA
+  )
+
+  expect_equal(nrow(updated$curves), 2L)
+  expect_equal(updated$curves$n.omitted.log.y, c(0L, 2L))
+  expect_equal(updated$curves$n.plotted, c(5L, 3L))
+})
+
+test_that("mts_pp_plot rejects non-positive limits on log axes", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(
+    h = seq_len(5),
+    v = c(0.01, 0.1, 1, 0.1, 0.01)
+  ))
+
+  expect_error(
+    mts_pp_plot(x, h.var = "h", v.var = "v", log = "y", ylim = c(0, 1)),
+    "strictly positive"
+  )
+  expect_error(
+    mts_pp_plot(x, h.var = "h", v.var = "v", log = "x", xlim = c(-1, 5)),
+    "strictly positive"
+  )
+})
+
 test_that("mts_pp_plot defaults axis tick labels to las one and allows override", {
   pdf.file <- tempfile(fileext = ".pdf")
   grDevices::pdf(pdf.file)

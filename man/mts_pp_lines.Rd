@@ -13,6 +13,7 @@ mts_pp_lines(
   plot.info = NULL,
   label.map = NULL,
   use.tikz = NULL,
+  log = NULL,
   col = "red",
   lty = 1,
   lwd = 1,
@@ -40,6 +41,11 @@ names to display labels. Used only when \code{plot.info} is \code{NULL}.}
 
 \item{use.tikz}{Optional logical scalar passed to \code{\link[=nice_text]{nice_text()}}. Used only
 when \code{plot.info} is \code{NULL}.}
+
+\item{log}{Optional character scalar used only when \code{plot.info} is \code{NULL}.
+When omitted, the current plot's log-axis state is used. When \code{plot.info}
+is supplied, overlays use the log-axis settings recorded by
+\code{\link[=mts_pp_plot]{mts_pp_plot()}}.}
 
 \item{col, lty, lwd, type}{Graphical parameters for overlay trajectories. \code{col},
 \code{lty}, and \code{lwd} may be scalar, vectorised by phase-plane pair, or named by

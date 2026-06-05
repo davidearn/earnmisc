@@ -15,6 +15,7 @@ mts_pp_plot(
   use.tikz = NULL,
   xlim = NULL,
   ylim = NULL,
+  log = "",
   col = "black",
   lty = 1,
   lwd = 1,
@@ -55,7 +56,14 @@ labels can be used in ordinary and tikz graphics contexts.}
 
 \item{xlim, ylim}{Optional finite numeric length-two ranges. When supplied,
 these override the automatically computed horizontal or vertical axis
-ranges for every phase-plane panel.}
+ranges for every phase-plane panel. Limits for log-scaled axes must be
+strictly positive.}
+
+\item{log}{Character scalar passed to \code{\link[graphics:plot.default]{graphics::plot.default()}}. When the
+horizontal axis is log-scaled, points with non-positive horizontal values
+are omitted before drawing and range calculation. When the vertical axis is
+log-scaled, points with non-positive vertical values are omitted in the
+same way.}
 
 \item{col, lty, lwd, type}{Graphical parameters for base trajectories. \code{col},
 \code{lty}, and \code{lwd} may be scalar, vectorised by phase-plane pair, or named by
