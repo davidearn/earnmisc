@@ -47,7 +47,7 @@ for both horizontal and vertical insets.}
 to determine vertical spacing between rows.}
 
 \item{gap}{Horizontal gap between adjacent columns in user coordinates. If
-\code{NULL}, the width of \code{"m"} at the requested \code{cex} is used.}
+\code{NULL}, \code{0.3} times the width of \code{"m"} at the requested \code{cex} is used.}
 
 \item{lhs.adj, mid.adj, rhs.adj}{Horizontal adjustment values passed to
 \code{\link[graphics:text]{graphics::text()}} for the corresponding column. Defaults are
@@ -71,8 +71,7 @@ line spacing, block size, graphical settings, current \code{usr}, and device.
 \description{
 \code{aligned_text()} draws a compact base-graphics text block with three
 aligned columns. The columns are named \code{lhs}, \code{mid}, and \code{rhs} for
-convenience, but the middle column can contain any text, not only relation
-symbols.
+convenience.
 }
 \details{
 Labels are passed through \code{\link[=nice_text]{nice_text()}} before drawing, so TeX-like labels

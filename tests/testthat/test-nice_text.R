@@ -308,6 +308,13 @@ test_that("nice_text translates simeq for non-tikz output", {
   expect_length(result, 1L)
 })
 
+test_that("nice_text leaves simeq unchanged for tikz output", {
+  expect_identical(
+    nice_text("$a \\simeq b$", use.tikz = TRUE),
+    "$a \\simeq b$"
+  )
+})
+
 test_that("temporary user ignore commands append to defaults", {
   ignore.file <- tempfile()
   writeLines("\\foo", ignore.file)

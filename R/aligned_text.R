@@ -2,8 +2,7 @@
 #'
 #' `aligned_text()` draws a compact base-graphics text block with three
 #' aligned columns. The columns are named `lhs`, `mid`, and `rhs` for
-#' convenience, but the middle column can contain any text, not only relation
-#' symbols.
+#' convenience.
 #'
 #' Labels are passed through [nice_text()] before drawing, so TeX-like labels
 #' work on ordinary graphics devices and tikz devices. The block can be placed
@@ -27,7 +26,7 @@
 #' @param line.spacing Positive multiplier applied to the maximum row height
 #'   to determine vertical spacing between rows.
 #' @param gap Horizontal gap between adjacent columns in user coordinates. If
-#'   `NULL`, the width of `"m"` at the requested `cex` is used.
+#'   `NULL`, `0.3` times the width of `"m"` at the requested `cex` is used.
 #' @param lhs.adj,mid.adj,rhs.adj Horizontal adjustment values passed to
 #'   [graphics::text()] for the corresponding column. Defaults are
 #'   `lhs.adj = 1`, `mid.adj = 0.5`, and `rhs.adj = 0`, giving
@@ -110,7 +109,7 @@ aligned_text <- function(x, y = NULL,
     numeric(1)
   )
   if (is.null(gap)) {
-    gap <- graphics::strwidth("m", cex = cex)
+    gap <- 0.3 * graphics::strwidth("m", cex = cex)
   } else {
     gap <- validate_aligned_text_nonnegative_scalar(gap, "gap")
   }

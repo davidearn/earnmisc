@@ -104,6 +104,40 @@ test_that("aligned_text accepts user-supplied column adjustments", {
   expect_equal(info$columns$adj, c(0, 1, 0.5))
 })
 
+test_that("aligned_text resolves default gap from m width", {
+  out <- with_aligned_text_pdf({
+    graphics::plot(0, 0, type = "n", xlim = c(0, 1), ylim = c(0, 1), las = 1)
+    expected.gap <- 0.3 * graphics::strwidth("m", cex = 1.2)
+    info <- aligned_text(
+      0.1, 0.9,
+      lhs = "a",
+      mid = "=",
+      rhs = "one",
+      cex = 1.2,
+      use.tikz = TRUE
+    )
+    list(info = info, expected.gap = expected.gap)
+  })
+
+  expect_equal(out$info$gap, out$expected.gap)
+})
+
+test_that("aligned_text accepts user-supplied gap", {
+  info <- with_aligned_text_pdf({
+    graphics::plot(0, 0, type = "n", xlim = c(0, 1), ylim = c(0, 1), las = 1)
+    aligned_text(
+      0.1, 0.9,
+      lhs = "a",
+      mid = "=",
+      rhs = "one",
+      gap = 0.04,
+      use.tikz = TRUE
+    )
+  })
+
+  expect_equal(info$gap, 0.04)
+})
+
 test_that("aligned_text returns useful placement information", {
   info <- with_aligned_text_pdf({
     graphics::plot(0, 0, type = "n", xlim = c(0, 1), ylim = c(0, 1), las = 1)
