@@ -431,7 +431,17 @@ clean_tex_for_latex2exp <- function(x, ignore.commands) {
     cleaned.text <- gsub(command.pattern, "", cleaned.text, perl = TRUE)
   }
 
-  cleaned.text
+  translate_tex_symbols_for_latex2exp(cleaned.text)
+}
+
+translate_tex_symbols_for_latex2exp <- function(x) {
+  translations <- c("\\simeq" = "\\approx")
+
+  for (command in names(translations)) {
+    x <- gsub(command, translations[[command]], x, fixed = TRUE)
+  }
+
+  x
 }
 
 parse_tex_macro_definition <- function(line) {

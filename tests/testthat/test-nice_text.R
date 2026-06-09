@@ -295,6 +295,19 @@ test_that("ignored wrapper and spacing commands are cleaned", {
   )
 })
 
+test_that("nice_text translates simeq for non-tikz output", {
+  commands <- nice_text_ignore_commands()
+
+  expect_identical(
+    clean_tex_for_latex2exp("$a \\simeq b$", commands),
+    "$a \\approx b$"
+  )
+  expect_silent(
+    result <- nice_text("$a \\simeq b$", use.tikz = FALSE, warn = FALSE)
+  )
+  expect_length(result, 1L)
+})
+
 test_that("temporary user ignore commands append to defaults", {
   ignore.file <- tempfile()
   writeLines("\\foo", ignore.file)
