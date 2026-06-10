@@ -25,6 +25,10 @@ test_that("dev_is_pdf detects a PDF device", {
 })
 
 test_that("dev_is_tikz detects a tikzDevice device", {
+  skip_if_not(
+    tolower(Sys.getenv("RUN_TIKZ_TESTS", unset = "true")) %in% c("true", "1", "yes", "y", "on"),
+    "Set RUN_TIKZ_TESTS=true to run tikzDevice tests."
+  )
   skip_if_not_installed("tikzDevice")
 
   tex.file <- tempfile(fileext = ".tex")

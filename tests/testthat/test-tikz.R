@@ -70,6 +70,10 @@ test_that("tikz_open defaults to standAlone TRUE", {
 })
 
 test_that("tikz_open does not assign use.tikz in the caller", {
+  skip_if_not(
+    tolower(Sys.getenv("RUN_TIKZ_TESTS", unset = "true")) %in% c("true", "1", "yes", "y", "on"),
+    "Set RUN_TIKZ_TESTS=true to run tikzDevice tests."
+  )
   skip_if_not_installed("tikzDevice")
 
   tex.file <- tempfile(fileext = ".tex")
@@ -82,6 +86,10 @@ test_that("tikz_open does not assign use.tikz in the caller", {
 })
 
 test_that("tikz_open does not overwrite caller use.tikz", {
+  skip_if_not(
+    tolower(Sys.getenv("RUN_TIKZ_TESTS", unset = "true")) %in% c("true", "1", "yes", "y", "on"),
+    "Set RUN_TIKZ_TESTS=true to run tikzDevice tests."
+  )
   skip_if_not_installed("tikzDevice")
 
   use.tikz <- FALSE
