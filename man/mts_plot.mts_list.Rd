@@ -7,9 +7,11 @@
 \method{mts_plot}{mts_list}(
   x,
   columns = NULL,
+  panel = c("separate", "overlay"),
   nrow = NULL,
   ncol = NULL,
   blank.panels = NULL,
+  legend = FALSE,
   main = NULL,
   xlab = "Time",
   ylab = NULL,
@@ -33,21 +35,30 @@
 
 \item{columns}{Optional element names or indices to plot.}
 
+\item{panel}{Panel mode. \code{"separate"} draws one panel per selected element.
+\code{"overlay"} draws all selected elements on one panel.}
+
 \item{nrow, ncol}{Optional panel layout dimensions.}
 
 \item{blank.panels}{Optional positive integer vector of full layout panel
 indices to reserve.}
+
+\item{legend}{Simple legend control for \code{panel = "overlay"}. Use \code{FALSE} or
+\code{NULL} for no legend, \code{TRUE} for \code{"topright"}, or one of \code{"topright"},
+\code{"bottomright"}, \code{"topleft"}, or \code{"bottomleft"}. Direct labels are not
+implemented.}
 
 \item{main}{Optional outer title.}
 
 \item{xlab}{X-axis label.}
 
 \item{ylab}{Optional y-axis label. If \code{NULL}, each panel uses its element
-name.}
+name in separate-panel mode and no y-axis label in overlay mode.}
 
 \item{col, lty, lwd, type}{Graphical parameters for base curves. \code{col}, \code{lty},
 and \code{lwd} may be scalar, vectorised by selected element, or named by
-element.}
+element. In overlay mode, missing or \code{NULL} \code{col} uses the extended
+Okabe-Ito palette, recycled if needed.}
 
 \item{source}{Optional source label for the base curves.}
 
@@ -58,7 +69,8 @@ element.}
 \item{las}{Axis-label orientation passed to \code{\link[graphics:plot.default]{graphics::plot.default()}}.}
 
 \item{xlim, ylim}{Optional common limits for all panels. If \code{NULL}, each
-panel uses its own native range.}
+panel uses its own native range in separate-panel mode. In overlay mode,
+default limits use the range of all selected native time and value vectors.}
 
 \item{...}{Additional arguments passed to \code{\link[graphics:plot.default]{graphics::plot.default()}}.}
 }
@@ -67,7 +79,9 @@ Invisibly returns an \code{earnmisc_mts_plot_info} list containing panel
 metadata and a \code{curves} registry.
 }
 \description{
-Draw one panel per selected element of an \code{\link[=mts_list]{mts_list()}} object, using each
-element's own native time grid. The returned plot metadata has the same
+Draw selected elements of an \code{\link[=mts_list]{mts_list()}} object, using each element's own
+native time grid. With \code{panel = "separate"}, each selected element is drawn
+in its own panel. With \code{panel = "overlay"}, all selected elements are drawn
+on one panel. The returned plot metadata has the same
 \code{earnmisc_mts_plot_info} class used by ordinary \code{\link[=mts_plot]{mts_plot()}} output.
 }

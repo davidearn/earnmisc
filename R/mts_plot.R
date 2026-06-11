@@ -19,10 +19,14 @@ mts_plot_store$last <- NULL
 #' @param x Multivariate time-series object, or an object safely coercible to a
 #'   matrix with a regular sequence time index.
 #' @param columns Optional column names or indices to plot.
+#' @param panel Panel mode. `"separate"` draws one panel per selected series.
+#'   `"overlay"` draws all selected series on one panel for classes that
+#'   support overlay-panel plotting.
 #' @param nrow,ncol Optional panel layout dimensions.
 #' @param blank.panels Optional positive integer vector of full layout panel
 #'   indices to reserve for later legends, annotations, or custom graphics.
 #'   Reserved panels are blank after `mts_plot()` finishes.
+#' @param legend Simple legend control for overlay-panel methods.
 #' @param main Optional outer title.
 #' @param xlab X-axis label.
 #' @param ylab Optional y-axis label. If `NULL`, each panel uses its column name.
@@ -34,6 +38,8 @@ mts_plot_store$last <- NULL
 #'   expression supplied for `x`.
 #' @param axes,frame.plot Logical values passed to [graphics::plot.default()].
 #' @param mar,oma Optional margin settings passed to [graphics::par()].
+#' @param las Axis-label orientation passed to [graphics::plot.default()].
+#' @param xlim,ylim Optional axis limits.
 #' @param ... Additional arguments passed to [graphics::plot.default()].
 #'
 #' @return Invisibly returns an `earnmisc_mts_plot_info` list containing panel
@@ -67,9 +73,11 @@ mts_plot_store$last <- NULL
 mts_plot <- function(
   x,
   columns = NULL,
+  panel = c("separate", "overlay"),
   nrow = NULL,
   ncol = NULL,
   blank.panels = NULL,
+  legend = FALSE,
   main = NULL,
   xlab = "Time",
   ylab = NULL,
@@ -82,6 +90,9 @@ mts_plot <- function(
   frame.plot = TRUE,
   mar = NULL,
   oma = NULL,
+  las = 1,
+  xlim = NULL,
+  ylim = NULL,
   ...
 ) {
   UseMethod("mts_plot")
@@ -92,9 +103,11 @@ mts_plot <- function(
 mts_plot.default <- function(
   x,
   columns = NULL,
+  panel = c("separate", "overlay"),
   nrow = NULL,
   ncol = NULL,
   blank.panels = NULL,
+  legend = FALSE,
   main = NULL,
   xlab = "Time",
   ylab = NULL,
@@ -107,8 +120,21 @@ mts_plot.default <- function(
   frame.plot = TRUE,
   mar = NULL,
   oma = NULL,
+  las = 1,
+  xlim = NULL,
+  ylim = NULL,
   ...
 ) {
+  panel <- match.arg(panel)
+  if (identical(panel, "overlay")) {
+    stop("`panel = \"overlay\"` is only supported for classes with native overlay-panel methods.",
+         call. = FALSE)
+  }
+  if (!isFALSE(legend) && !is.null(legend)) {
+    stop("`legend` is only supported when `panel = \"overlay\"`.",
+         call. = FALSE)
+  }
+
   source <- normalise_mts_source(substitute(x), source = source)
   mts.data <- as_mts_matrix(x)
   selected.columns <- resolve_mts_columns(
@@ -141,8 +167,8 @@ mts_plot.default <- function(
 
   usr <- vector("list", total.panels)
   mfg <- vector("list", total.panels)
-  xlim <- range(mts.data$time, finite = TRUE)
-  ylim <- vector("list", total.panels)
+  plot.xlim <- if (is.null(xlim)) range(mts.data$time, finite = TRUE) else xlim
+  panel.ylim <- vector("list", total.panels)
   panel.names <- rep(NA_character_, total.panels)
   panel.columns <- rep(NA_integer_, total.panels)
 
@@ -152,7 +178,7 @@ mts_plot.default <- function(
       graphics::plot.window(xlim = c(0, 1), ylim = c(0, 1), xaxs = "i", yaxs = "i")
       usr[[panel.index]] <- graphics::par("usr")
       mfg[[panel.index]] <- graphics::par("mfg")
-      ylim[[panel.index]] <- c(0, 1)
+      panel.ylim[[panel.index]] <- c(0, 1)
       next
     }
 
@@ -160,6 +186,11 @@ mts_plot.default <- function(
     column.index <- selected.columns[[data.index]]
     panel.name <- selected.names[[data.index]]
     panel.ylab <- if (is.null(ylab)) panel.name else ylab
+    current.ylim <- if (is.null(ylim)) {
+      range(mts.data$matrix[, column.index], finite = TRUE)
+    } else {
+      ylim
+    }
 
     graphics::plot.default(
       x = mts.data$time,
@@ -173,12 +204,15 @@ mts_plot.default <- function(
       lwd = graphics.parameters$lwd[[data.index]],
       axes = axes,
       frame.plot = frame.plot,
+      las = las,
+      xlim = plot.xlim,
+      ylim = current.ylim,
       ...
     )
 
     usr[[panel.index]] <- graphics::par("usr")
     mfg[[panel.index]] <- graphics::par("mfg")
-    ylim[[panel.index]] <- range(mts.data$matrix[, column.index], finite = TRUE)
+    panel.ylim[[panel.index]] <- current.ylim
     panel.names[[panel.index]] <- panel.name
     panel.columns[[panel.index]] <- column.index
   }
@@ -209,13 +243,14 @@ mts_plot.default <- function(
     columns = selected.columns,
     column.names = selected.names,
     original.column.names = mts.data$original.column.names,
+    panel.mode = "separate",
     panel.order = data.panels,
     layout = layout,
     time = mts.data$time,
     usr = usr,
     mfg = mfg,
-    xlim = xlim,
-    ylim = ylim,
+    xlim = plot.xlim,
+    ylim = panel.ylim,
     blank.panels = if (length(blank.panels) == 0L) NULL else blank.panels,
     data.panels = data.panels,
     panel.roles = panel.roles,
@@ -226,8 +261,8 @@ mts_plot.default <- function(
       column = panel.columns,
       mfg = mfg,
       usr = usr,
-      xlim = rep(list(xlim), total.panels),
-      ylim = ylim
+      xlim = rep(list(plot.xlim), total.panels),
+      ylim = panel.ylim
     ),
     device = unname(grDevices::dev.cur()),
     created_at = Sys.time(),

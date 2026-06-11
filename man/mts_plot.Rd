@@ -8,9 +8,11 @@
 mts_plot(
   x,
   columns = NULL,
+  panel = c("separate", "overlay"),
   nrow = NULL,
   ncol = NULL,
   blank.panels = NULL,
+  legend = FALSE,
   main = NULL,
   xlab = "Time",
   ylab = NULL,
@@ -23,15 +25,20 @@ mts_plot(
   frame.plot = TRUE,
   mar = NULL,
   oma = NULL,
+  las = 1,
+  xlim = NULL,
+  ylim = NULL,
   ...
 )
 
 \method{mts_plot}{default}(
   x,
   columns = NULL,
+  panel = c("separate", "overlay"),
   nrow = NULL,
   ncol = NULL,
   blank.panels = NULL,
+  legend = FALSE,
   main = NULL,
   xlab = "Time",
   ylab = NULL,
@@ -44,6 +51,9 @@ mts_plot(
   frame.plot = TRUE,
   mar = NULL,
   oma = NULL,
+  las = 1,
+  xlim = NULL,
+  ylim = NULL,
   ...
 )
 }
@@ -53,11 +63,17 @@ matrix with a regular sequence time index.}
 
 \item{columns}{Optional column names or indices to plot.}
 
+\item{panel}{Panel mode. \code{"separate"} draws one panel per selected series.
+\code{"overlay"} draws all selected series on one panel for classes that
+support overlay-panel plotting.}
+
 \item{nrow, ncol}{Optional panel layout dimensions.}
 
 \item{blank.panels}{Optional positive integer vector of full layout panel
 indices to reserve for later legends, annotations, or custom graphics.
 Reserved panels are blank after \code{mts_plot()} finishes.}
+
+\item{legend}{Simple legend control for overlay-panel methods.}
 
 \item{main}{Optional outer title.}
 
@@ -76,6 +92,10 @@ expression supplied for \code{x}.}
 \item{axes, frame.plot}{Logical values passed to \code{\link[graphics:plot.default]{graphics::plot.default()}}.}
 
 \item{mar, oma}{Optional margin settings passed to \code{\link[graphics:par]{graphics::par()}}.}
+
+\item{las}{Axis-label orientation passed to \code{\link[graphics:plot.default]{graphics::plot.default()}}.}
+
+\item{xlim, ylim}{Optional axis limits.}
 
 \item{...}{Additional arguments passed to \code{\link[graphics:plot.default]{graphics::plot.default()}}.}
 }

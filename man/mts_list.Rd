@@ -28,7 +28,7 @@ with numeric components \code{time} and \code{value}.
 \code{mts_list()} creates a list-like multivariate time-series object for panel
 plotting when each series has its own native time grid. Each element stores
 one numeric time vector and one numeric value vector. Use \code{\link[=mts_plot]{mts_plot()}} to draw
-one panel per element.
+one panel per element or to overlay all selected elements on one panel.
 }
 \details{
 \code{mts_list} objects are intended for native-grid panel plotting. They do not

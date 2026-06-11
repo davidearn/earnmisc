@@ -3,7 +3,7 @@
 #' `mts_list()` creates a list-like multivariate time-series object for panel
 #' plotting when each series has its own native time grid. Each element stores
 #' one numeric time vector and one numeric value vector. Use [mts_plot()] to draw
-#' one panel per element.
+#' one panel per element or to overlay all selected elements on one panel.
 #'
 #' `mts_list` objects are intended for native-grid panel plotting. They do not
 #' interpolate series onto a common grid. [mts_lines()] can overlay another
@@ -53,28 +53,38 @@ mts_list <- function(x, time = NULL, names = NULL, ...) {
 
 #' Plot a native-grid mts list
 #'
-#' Draw one panel per selected element of an [mts_list()] object, using each
-#' element's own native time grid. The returned plot metadata has the same
+#' Draw selected elements of an [mts_list()] object, using each element's own
+#' native time grid. With `panel = "separate"`, each selected element is drawn
+#' in its own panel. With `panel = "overlay"`, all selected elements are drawn
+#' on one panel. The returned plot metadata has the same
 #' `earnmisc_mts_plot_info` class used by ordinary [mts_plot()] output.
 #'
 #' @param x Object created by [mts_list()].
 #' @param columns Optional element names or indices to plot.
+#' @param panel Panel mode. `"separate"` draws one panel per selected element.
+#'   `"overlay"` draws all selected elements on one panel.
 #' @param nrow,ncol Optional panel layout dimensions.
 #' @param blank.panels Optional positive integer vector of full layout panel
 #'   indices to reserve.
+#' @param legend Simple legend control for `panel = "overlay"`. Use `FALSE` or
+#'   `NULL` for no legend, `TRUE` for `"topright"`, or one of `"topright"`,
+#'   `"bottomright"`, `"topleft"`, or `"bottomleft"`. Direct labels are not
+#'   implemented.
 #' @param main Optional outer title.
 #' @param xlab X-axis label.
 #' @param ylab Optional y-axis label. If `NULL`, each panel uses its element
-#'   name.
+#'   name in separate-panel mode and no y-axis label in overlay mode.
 #' @param col,lty,lwd,type Graphical parameters for base curves. `col`, `lty`,
 #'   and `lwd` may be scalar, vectorised by selected element, or named by
-#'   element.
+#'   element. In overlay mode, missing or `NULL` `col` uses the extended
+#'   Okabe-Ito palette, recycled if needed.
 #' @param source Optional source label for the base curves.
 #' @param axes,frame.plot Logical values passed to [graphics::plot.default()].
 #' @param mar,oma Optional margin settings passed to [graphics::par()].
 #' @param las Axis-label orientation passed to [graphics::plot.default()].
 #' @param xlim,ylim Optional common limits for all panels. If `NULL`, each
-#'   panel uses its own native range.
+#'   panel uses its own native range in separate-panel mode. In overlay mode,
+#'   default limits use the range of all selected native time and value vectors.
 #' @param ... Additional arguments passed to [graphics::plot.default()].
 #'
 #' @return Invisibly returns an `earnmisc_mts_plot_info` list containing panel
@@ -84,9 +94,11 @@ mts_list <- function(x, time = NULL, names = NULL, ...) {
 mts_plot.mts_list <- function(
   x,
   columns = NULL,
+  panel = c("separate", "overlay"),
   nrow = NULL,
   ncol = NULL,
   blank.panels = NULL,
+  legend = FALSE,
   main = NULL,
   xlab = "Time",
   ylab = NULL,
@@ -109,6 +121,7 @@ mts_plot.mts_list <- function(
          call. = FALSE)
   }
 
+  panel <- match.arg(panel)
   source <- normalise_mts_source(substitute(x), source = source)
   series.names <- names(x)
   selected.columns <- resolve_mts_columns(
@@ -118,6 +131,48 @@ mts_plot.mts_list <- function(
     argument.name = "columns"
   )
   selected.names <- series.names[selected.columns]
+
+  if (identical(panel, "overlay")) {
+    validate_mts_list_overlay_layout(
+      nrow = nrow,
+      ncol = ncol,
+      blank.panels = blank.panels
+    )
+    legend.position <- resolve_mts_list_overlay_legend(legend)
+    if (missing(col) || is.null(col)) {
+      col <- default_mts_list_overlay_colours(length(selected.columns))
+    }
+
+    return(mts_plot_mts_list_overlay(
+      x = x,
+      selected.columns = selected.columns,
+      selected.names = selected.names,
+      series.names = series.names,
+      source = source,
+      main = main,
+      xlab = xlab,
+      ylab = ylab,
+      col = col,
+      lty = lty,
+      lwd = lwd,
+      type = type,
+      axes = axes,
+      frame.plot = frame.plot,
+      mar = mar,
+      oma = oma,
+      las = las,
+      xlim = xlim,
+      ylim = ylim,
+      legend.position = legend.position,
+      ...
+    ))
+  }
+
+  if (!isFALSE(legend) && !is.null(legend)) {
+    stop("`legend` is only supported when `panel = \"overlay\"`.",
+         call. = FALSE)
+  }
+
   blank.panels <- resolve_blank_panels(blank.panels, n.data.panels = length(selected.columns))
   total.panels <- length(selected.columns) + length(blank.panels)
   data.panels <- setdiff(seq_len(total.panels), blank.panels)
@@ -217,6 +272,7 @@ mts_plot.mts_list <- function(
     columns = selected.columns,
     column.names = selected.names,
     original.column.names = series.names,
+    panel.mode = "separate",
     panel.order = data.panels,
     layout = layout,
     time = lapply(x[selected.columns], `[[`, "time"),
@@ -239,12 +295,254 @@ mts_plot.mts_list <- function(
     ),
     device = unname(grDevices::dev.cur()),
     created_at = Sys.time(),
+    legend = NULL,
     curves = curves
   )
   class(plot.info) <- c("earnmisc_mts_plot_info", "list")
   store_mts_plot_info(plot.info)
 
   invisible(plot.info)
+}
+
+#' Plot an mts-list object in one overlay panel
+#'
+#' @inheritParams mts_plot.mts_list
+#' @param selected.columns Integer indices of selected series.
+#' @param selected.names Names of selected series.
+#' @param series.names Names of all series.
+#' @param source Normalised mts source label.
+#' @param legend.position Optional legend position.
+#'
+#' @return Invisibly returns an `earnmisc_mts_plot_info` object.
+#' @noRd
+mts_plot_mts_list_overlay <- function(x,
+                                      selected.columns,
+                                      selected.names,
+                                      series.names,
+                                      source,
+                                      main,
+                                      xlab,
+                                      ylab,
+                                      col,
+                                      lty,
+                                      lwd,
+                                      type,
+                                      axes,
+                                      frame.plot,
+                                      mar,
+                                      oma,
+                                      las,
+                                      xlim,
+                                      ylim,
+                                      legend.position,
+                                      ...) {
+  selected.series <- x[selected.columns]
+  graphics.parameters <- resolve_mts_graphics(
+    n = length(selected.columns),
+    col = col,
+    lty = lty,
+    lwd = lwd,
+    column.names = selected.names
+  )
+  all.time <- unlist(lapply(selected.series, `[[`, "time"), use.names = FALSE)
+  all.value <- unlist(lapply(selected.series, `[[`, "value"), use.names = FALSE)
+  current.xlim <- if (is.null(xlim)) range(all.time, finite = TRUE) else xlim
+  current.ylim <- if (is.null(ylim)) range(all.value, finite = TRUE) else ylim
+
+  if (!is.null(mar)) {
+    graphics::par(mar = mar)
+  }
+  if (!is.null(oma)) {
+    graphics::par(oma = oma)
+  }
+  graphics::par(mfrow = c(1L, 1L))
+
+  first.series <- selected.series[[1L]]
+  graphics::plot.default(
+    x = first.series$time,
+    y = first.series$value,
+    type = type,
+    xlab = xlab,
+    ylab = ylab,
+    main = main,
+    col = graphics.parameters$col[[1L]],
+    lty = graphics.parameters$lty[[1L]],
+    lwd = graphics.parameters$lwd[[1L]],
+    axes = axes,
+    frame.plot = frame.plot,
+    las = las,
+    xlim = current.xlim,
+    ylim = current.ylim,
+    ...
+  )
+
+  if (length(selected.series) > 1L) {
+    for (series.index in seq.int(2L, length(selected.series))) {
+      series <- selected.series[[series.index]]
+      graphics::lines(
+        x = series$time,
+        y = series$value,
+        type = type,
+        col = graphics.parameters$col[[series.index]],
+        lty = graphics.parameters$lty[[series.index]],
+        lwd = graphics.parameters$lwd[[series.index]],
+        ...
+      )
+    }
+  }
+
+  legend.info <- NULL
+  if (!is.null(legend.position)) {
+    legend.result <- graphics::legend(
+      legend.position,
+      legend = selected.names,
+      col = graphics.parameters$col,
+      lty = graphics.parameters$lty,
+      lwd = graphics.parameters$lwd,
+      bty = "n"
+    )
+    legend.info <- list(
+      position = legend.position,
+      labels = selected.names,
+      col = graphics.parameters$col,
+      lty = graphics.parameters$lty,
+      lwd = graphics.parameters$lwd,
+      result = legend.result
+    )
+  }
+
+  usr <- list(graphics::par("usr"))
+  mfg <- list(graphics::par("mfg"))
+  panel.roles <- "data"
+  data.panels <- rep(1L, length(selected.columns))
+  panel.xlim <- list(current.xlim)
+  panel.ylim <- list(current.ylim)
+  panel.name <- if (is.null(ylab)) "overlay" else as.character(ylab)[[1L]]
+
+  curves <- make_mts_curve_registry(
+    source = source$key,
+    source.label = source$label,
+    object.index = 0L,
+    column = selected.columns,
+    name = selected.names,
+    panel.index = data.panels,
+    panel.name = selected.names,
+    col = graphics.parameters$col,
+    lty = graphics.parameters$lty,
+    lwd = graphics.parameters$lwd,
+    type = type,
+    drawn = TRUE,
+    reason = NA_character_
+  )
+
+  plot.info <- list(
+    x = x,
+    data = selected.series,
+    columns = selected.columns,
+    column.names = selected.names,
+    original.column.names = series.names,
+    panel.mode = "overlay",
+    panel.order = 1L,
+    layout = list(nrow = 1L, ncol = 1L),
+    time = lapply(selected.series, `[[`, "time"),
+    usr = usr,
+    mfg = mfg,
+    xlim = current.xlim,
+    ylim = panel.ylim,
+    blank.panels = NULL,
+    data.panels = data.panels,
+    panel.roles = panel.roles,
+    panels = make_mts_panel_metadata(
+      panel.index = 1L,
+      role = panel.roles,
+      name = panel.name,
+      column = NA_integer_,
+      mfg = mfg,
+      usr = usr,
+      xlim = panel.xlim,
+      ylim = panel.ylim
+    ),
+    device = unname(grDevices::dev.cur()),
+    created_at = Sys.time(),
+    legend = legend.info,
+    curves = curves
+  )
+  class(plot.info) <- c("earnmisc_mts_plot_info", "list")
+  store_mts_plot_info(plot.info)
+
+  invisible(plot.info)
+}
+
+#' Validate overlay-panel layout inputs for mts-list plots
+#'
+#' @param nrow,ncol Optional layout dimensions.
+#' @param blank.panels Optional reserved panels.
+#'
+#' @return Invisibly returns `NULL`.
+#' @noRd
+validate_mts_list_overlay_layout <- function(nrow, ncol, blank.panels) {
+  if (!is.null(blank.panels)) {
+    stop("`blank.panels` is not supported when `panel = \"overlay\"`.",
+         call. = FALSE)
+  }
+
+  if (!is.null(nrow)) {
+    nrow <- validate_grid_dimension(nrow, "nrow")
+    if (nrow != 1L) {
+      stop("`nrow` must be `NULL` or 1 when `panel = \"overlay\"`.",
+           call. = FALSE)
+    }
+  }
+  if (!is.null(ncol)) {
+    ncol <- validate_grid_dimension(ncol, "ncol")
+    if (ncol != 1L) {
+      stop("`ncol` must be `NULL` or 1 when `panel = \"overlay\"`.",
+           call. = FALSE)
+    }
+  }
+
+  invisible(NULL)
+}
+
+#' Resolve mts-list overlay legend control
+#'
+#' @param legend User-supplied legend control.
+#'
+#' @return Legend position or `NULL`.
+#' @noRd
+resolve_mts_list_overlay_legend <- function(legend) {
+  if (is.null(legend) || isFALSE(legend)) {
+    return(NULL)
+  }
+  if (isTRUE(legend)) {
+    return("topright")
+  }
+
+  positions <- c("topright", "bottomright", "topleft", "bottomleft")
+  if (!is.character(legend) ||
+      length(legend) != 1L ||
+      is.na(legend) ||
+      !(legend %in% positions)) {
+    stop(
+      "`legend` must be FALSE, TRUE, NULL, or one of: ",
+      paste(sprintf("\"%s\"", positions), collapse = ", "),
+      ".",
+      call. = FALSE
+    )
+  }
+
+  legend
+}
+
+#' Return default overlay colours for mts-list plots
+#'
+#' @param n Number of colours needed.
+#'
+#' @return Character vector of colours.
+#' @noRd
+default_mts_list_overlay_colours <- function(n) {
+  colours <- unname(okabe_ito_colours(extended = TRUE))
+  rep(colours, length.out = n)
 }
 
 #' @rdname mts_lines
@@ -373,6 +671,10 @@ mts_lines.mts_list <- function(
 #' @return Integer panel indices with `NA` for unmatched names.
 #' @noRd
 match_mts_list_panels <- function(y.names, y.columns, plot.info, match) {
+  if (identical(plot.info$panel.mode, "overlay")) {
+    return(rep(plot.info$panel.order[[1L]], length(y.columns)))
+  }
+
   if (identical(match, "name")) {
     selected.names <- y.names[y.columns]
     data.positions <- match(selected.names, plot.info$column.names)

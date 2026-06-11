@@ -53,6 +53,7 @@ test_that("mts_plot works on native-grid mts_list objects", {
   expect_s3_class(plot.info, "earnmisc_mts_plot_info")
   expect_equal(plot.info$layout$nrow, 1L)
   expect_equal(plot.info$layout$ncol, 2L)
+  expect_equal(plot.info$panel.mode, "separate")
   expect_equal(plot.info$column.names, c("first", "second"))
   expect_equal(plot.info$panels[["1"]]$xlim, c(0, 2))
   expect_equal(plot.info$panels[["2"]]$xlim, c(0, 6))
@@ -78,6 +79,74 @@ test_that("mts_plot supports selected native-grid panels and blank panels", {
   expect_equal(plot.info$data.panels, c(2L, 3L))
   expect_equal(plot.info$column.names, c("c", "a"))
   expect_equal(plot.info$curves$panel.index, c(2L, 3L))
+})
+
+test_that("mts_plot overlays native-grid mts_list objects", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- mts_list(
+    list(first = c(1, 2, 3), second = c(4, 5, 6, 7), third = c(3, 5)),
+    time = list(first = c(0, 1, 2), second = c(0, 2, 4, 6), third = c(-1, 10))
+  )
+
+  result <- withVisible(mts_plot(
+    x,
+    panel = "overlay",
+    col = c("red", "blue", "darkgreen"),
+    lty = c(1, 2, 3),
+    lwd = c(1, 2, 3),
+    legend = "topright"
+  ))
+
+  expect_false(result$visible)
+  plot.info <- result$value
+  expect_s3_class(plot.info, "earnmisc_mts_plot_info")
+  expect_equal(plot.info$panel.mode, "overlay")
+  expect_equal(plot.info$layout$nrow, 1L)
+  expect_equal(plot.info$layout$ncol, 1L)
+  expect_equal(plot.info$column.names, c("first", "second", "third"))
+  expect_equal(plot.info$xlim, c(-1, 10))
+  expect_equal(plot.info$ylim[[1L]], c(1, 7))
+  expect_equal(unique(plot.info$curves$panel.index), 1L)
+  expect_equal(nrow(plot.info$curves), 3L)
+  expect_equal(plot.info$curves$col, c("red", "blue", "darkgreen"))
+  expect_equal(plot.info$curves$lty, c("1", "2", "3"))
+  expect_equal(plot.info$curves$lwd, c(1, 2, 3))
+  expect_equal(plot.info$legend$position, "topright")
+  expect_equal(plot.info$legend$labels, c("first", "second", "third"))
+})
+
+test_that("mts_plot overlay mode resolves legends, defaults, and limits", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- mts_list(
+    list(first = c(1, 2, 3), second = c(4, 5, 6, 7)),
+    time = list(first = c(0, 1, 2), second = c(0, 2, 4, 6))
+  )
+
+  with.legend <- mts_plot(x, panel = "overlay", legend = TRUE)
+  expect_equal(with.legend$legend$position, "topright")
+  expect_equal(
+    with.legend$curves$col,
+    unname(okabe_ito_colours(extended = TRUE))[1:2]
+  )
+
+  without.legend <- mts_plot(
+    x,
+    panel = "overlay",
+    legend = FALSE,
+    xlim = c(-5, 8),
+    ylim = c(0, 10)
+  )
+  expect_null(without.legend$legend)
+  expect_equal(without.legend$xlim, c(-5, 8))
+  expect_equal(without.legend$ylim[[1L]], c(0, 10))
+  expect_equal(without.legend$panels[["1"]]$xlim, c(-5, 8))
+  expect_equal(without.legend$panels[["1"]]$ylim, c(0, 10))
 })
 
 test_that("mts_lines has a native-grid mts_list method", {
@@ -158,6 +227,31 @@ test_that("mts_lines validates native-grid overlay panel counts", {
     "overlay series count must match plotted data panel count",
     fixed = TRUE
   )
+})
+
+test_that("mts_lines overlays native-grid objects onto overlay panels", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- mts_list(
+    list(first = c(1, 2, 3), second = c(4, 5, 6, 7)),
+    time = list(first = c(0, 1, 2), second = c(0, 2, 4, 6))
+  )
+  y <- mts_list(
+    list(first = c(1.5, 2.5, 3.5, 4.5), second = c(4.5, 5.5, 6.5)),
+    time = list(first = c(0, 0.5, 1, 2), second = c(0, 3, 6))
+  )
+
+  plot.info <- mts_plot(x, panel = "overlay")
+  updated <- mts_lines(y, plot.info = plot.info, col = c("red", "blue"))
+  overlay.rows <- updated$curves[updated$curves$object.index == 1L, ]
+
+  expect_s3_class(updated, "earnmisc_mts_plot_info")
+  expect_equal(nrow(overlay.rows), 2L)
+  expect_equal(overlay.rows$panel.index, c(1L, 1L))
+  expect_equal(overlay.rows$name, c("first", "second"))
+  expect_equal(overlay.rows$col, c("red", "blue"))
 })
 
 test_that("mts_lines can match native-grid overlays by name", {
