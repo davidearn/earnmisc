@@ -11,7 +11,9 @@ mts_plot(
   panel = c("separate", "overlay"),
   nrow = NULL,
   ncol = NULL,
+  panel.fill = c("row", "column"),
   blank.panels = NULL,
+  panel.main = TRUE,
   legend = FALSE,
   main = NULL,
   xlab = "Time",
@@ -23,6 +25,7 @@ mts_plot(
   source = NULL,
   axes = TRUE,
   frame.plot = TRUE,
+  bty = graphics::par("bty"),
   mar = NULL,
   oma = NULL,
   las = 1,
@@ -37,7 +40,9 @@ mts_plot(
   panel = c("separate", "overlay"),
   nrow = NULL,
   ncol = NULL,
+  panel.fill = c("row", "column"),
   blank.panels = NULL,
+  panel.main = TRUE,
   legend = FALSE,
   main = NULL,
   xlab = "Time",
@@ -49,6 +54,7 @@ mts_plot(
   source = NULL,
   axes = TRUE,
   frame.plot = TRUE,
+  bty = graphics::par("bty"),
   mar = NULL,
   oma = NULL,
   las = 1,
@@ -69,9 +75,17 @@ support overlay-panel plotting.}
 
 \item{nrow, ncol}{Optional panel layout dimensions.}
 
+\item{panel.fill}{Panel filling order for multi-panel plots. \code{"row"} fills
+across rows, equivalent to \code{\link[graphics:par]{graphics::par()}} \code{mfrow}; \code{"column"} fills
+down columns, equivalent to \code{mfcol}.}
+
 \item{blank.panels}{Optional positive integer vector of full layout panel
 indices to reserve for later legends, annotations, or custom graphics.
 Reserved panels are blank after \code{mts_plot()} finishes.}
+
+\item{panel.main}{Logical scalar. If \code{TRUE}, separate-panel methods use
+column names as panel main titles. If \code{FALSE}, separate panels have no
+main titles.}
 
 \item{legend}{Simple legend control for overlay-panel methods.}
 
@@ -90,6 +104,8 @@ output from \code{\link[=nice_text]{nice_text()}}. If \code{NULL}, a label is in
 expression supplied for \code{x}.}
 
 \item{axes, frame.plot}{Logical values passed to \code{\link[graphics:plot.default]{graphics::plot.default()}}.}
+
+\item{bty}{Box type passed to \code{\link[graphics:plot.default]{graphics::plot.default()}}.}
 
 \item{mar, oma}{Optional margin settings passed to \code{\link[graphics:par]{graphics::par()}}.}
 

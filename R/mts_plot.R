@@ -23,9 +23,15 @@ mts_plot_store$last <- NULL
 #'   `"overlay"` draws all selected series on one panel for classes that
 #'   support overlay-panel plotting.
 #' @param nrow,ncol Optional panel layout dimensions.
+#' @param panel.fill Panel filling order for multi-panel plots. `"row"` fills
+#'   across rows, equivalent to [graphics::par()] `mfrow`; `"column"` fills
+#'   down columns, equivalent to `mfcol`.
 #' @param blank.panels Optional positive integer vector of full layout panel
 #'   indices to reserve for later legends, annotations, or custom graphics.
 #'   Reserved panels are blank after `mts_plot()` finishes.
+#' @param panel.main Logical scalar. If `TRUE`, separate-panel methods use
+#'   column names as panel main titles. If `FALSE`, separate panels have no
+#'   main titles.
 #' @param legend Simple legend control for overlay-panel methods.
 #' @param main Optional outer title.
 #' @param xlab X-axis label.
@@ -37,6 +43,7 @@ mts_plot_store$last <- NULL
 #'   output from [nice_text()]. If `NULL`, a label is inferred from the
 #'   expression supplied for `x`.
 #' @param axes,frame.plot Logical values passed to [graphics::plot.default()].
+#' @param bty Box type passed to [graphics::plot.default()].
 #' @param mar,oma Optional margin settings passed to [graphics::par()].
 #' @param las Axis-label orientation passed to [graphics::plot.default()].
 #' @param xlim,ylim Optional axis limits.
@@ -76,7 +83,9 @@ mts_plot <- function(
   panel = c("separate", "overlay"),
   nrow = NULL,
   ncol = NULL,
+  panel.fill = c("row", "column"),
   blank.panels = NULL,
+  panel.main = TRUE,
   legend = FALSE,
   main = NULL,
   xlab = "Time",
@@ -88,6 +97,7 @@ mts_plot <- function(
   source = NULL,
   axes = TRUE,
   frame.plot = TRUE,
+  bty = graphics::par("bty"),
   mar = NULL,
   oma = NULL,
   las = 1,
@@ -106,7 +116,9 @@ mts_plot.default <- function(
   panel = c("separate", "overlay"),
   nrow = NULL,
   ncol = NULL,
+  panel.fill = c("row", "column"),
   blank.panels = NULL,
+  panel.main = TRUE,
   legend = FALSE,
   main = NULL,
   xlab = "Time",
@@ -118,6 +130,7 @@ mts_plot.default <- function(
   source = NULL,
   axes = TRUE,
   frame.plot = TRUE,
+  bty = graphics::par("bty"),
   mar = NULL,
   oma = NULL,
   las = 1,
@@ -126,6 +139,8 @@ mts_plot.default <- function(
   ...
 ) {
   panel <- match.arg(panel)
+  panel.fill <- validate_mts_panel_fill(panel.fill)
+  panel.main <- validate_mts_panel_main(panel.main)
   if (identical(panel, "overlay")) {
     stop("`panel = \"overlay\"` is only supported for classes with native overlay-panel methods.",
          call. = FALSE)
@@ -149,6 +164,7 @@ mts_plot.default <- function(
   data.panels <- setdiff(seq_len(total.panels), blank.panels)
   panel.roles <- mts_panel_roles(total.panels, blank.panels)
   layout <- mts_layout_dims(total.panels, nrow = nrow, ncol = ncol)
+  layout$panel.fill <- panel.fill
   graphics.parameters <- resolve_mts_graphics(
     n = length(selected.columns),
     col = col,
@@ -163,7 +179,7 @@ mts_plot.default <- function(
   if (!is.null(oma)) {
     graphics::par(oma = oma)
   }
-  graphics::par(mfrow = c(layout$nrow, layout$ncol))
+  set_mts_panel_layout(layout, panel.fill = panel.fill)
 
   usr <- vector("list", total.panels)
   mfg <- vector("list", total.panels)
@@ -198,12 +214,13 @@ mts_plot.default <- function(
       type = type,
       xlab = xlab,
       ylab = panel.ylab,
-      main = panel.name,
+      main = if (panel.main) panel.name else "",
       col = graphics.parameters$col[[data.index]],
       lty = graphics.parameters$lty[[data.index]],
       lwd = graphics.parameters$lwd[[data.index]],
       axes = axes,
       frame.plot = frame.plot,
+      bty = bty,
       las = las,
       xlim = plot.xlim,
       ylim = current.ylim,
@@ -246,6 +263,8 @@ mts_plot.default <- function(
     panel.mode = "separate",
     panel.order = data.panels,
     layout = layout,
+    panel.fill = panel.fill,
+    panel.main = panel.main,
     time = mts.data$time,
     usr = usr,
     mfg = mfg,
@@ -266,6 +285,7 @@ mts_plot.default <- function(
     ),
     device = unname(grDevices::dev.cur()),
     created_at = Sys.time(),
+    bty = bty,
     curves = curves
   )
   class(plot.info) <- c("earnmisc_mts_plot_info", "list")
@@ -991,6 +1011,67 @@ mts_column_names <- function(x) {
 #' @noRd
 mts_layout_dims <- function(n, nrow = NULL, ncol = NULL) {
   colour_grid_dims(n, nrow = nrow, ncol = ncol)
+}
+
+#' Apply an mts panel layout
+#'
+#' Applies the requested row- or column-filled base graphics layout.
+#'
+#' @param layout Layout list from `mts_layout_dims()`.
+#' @param panel.fill Panel filling mode.
+#'
+#' @return Invisibly returns `NULL`.
+#' @noRd
+set_mts_panel_layout <- function(layout, panel.fill = c("row", "column")) {
+  panel.fill <- validate_mts_panel_fill(panel.fill)
+  dims <- c(layout$nrow, layout$ncol)
+  if (identical(panel.fill, "row")) {
+    graphics::par(mfrow = dims)
+  } else {
+    graphics::par(mfcol = dims)
+  }
+
+  invisible(NULL)
+}
+
+#' Validate mts panel fill order
+#'
+#' @param panel.fill User-supplied panel filling mode.
+#'
+#' @return Character scalar.
+#' @noRd
+validate_mts_panel_fill <- function(panel.fill) {
+  choices <- c("row", "column")
+  out <- tryCatch(
+    match.arg(panel.fill, choices),
+    error = function(e) NULL
+  )
+  if (is.null(out)) {
+    stop(
+      "`panel.fill` must be one of: ",
+      paste(sprintf("\"%s\"", choices), collapse = ", "),
+      ".",
+      call. = FALSE
+    )
+  }
+
+  out
+}
+
+#' Validate mts panel-title control
+#'
+#' @param panel.main User-supplied panel-title control.
+#'
+#' @return Logical scalar.
+#' @noRd
+validate_mts_panel_main <- function(panel.main) {
+  if (!is.logical(panel.main) ||
+      length(panel.main) != 1L ||
+      is.na(panel.main)) {
+    stop("`panel.main` must be TRUE or FALSE.", call. = FALSE)
+  }
+
+  panel.main
 }
 
 #' Resolve blank mts panels

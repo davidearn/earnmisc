@@ -61,6 +61,47 @@ test_that("mts_plot works on native-grid mts_list objects", {
   expect_equal(plot.info$curves$lty, c("1", "2"))
 })
 
+test_that("mts_plot supports native-grid panel fill order and box style", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- mts_list(
+    list(first = 1:3, second = 2:4, third = 3:5),
+    time = list(first = 1:3, second = 1:3, third = 1:3)
+  )
+
+  row.filled <- mts_plot(
+    x,
+    nrow = 2,
+    ncol = 2,
+    panel.fill = "row",
+    panel.main = FALSE,
+    bty = "L"
+  )
+  column.filled <- mts_plot(
+    x,
+    nrow = 2,
+    ncol = 2,
+    panel.fill = "column"
+  )
+
+  expect_equal(row.filled$panel.fill, "row")
+  expect_equal(row.filled$layout$panel.fill, "row")
+  expect_false(row.filled$panel.main)
+  expect_equal(row.filled$bty, "L")
+  expect_equal(row.filled$panels[["2"]]$mfg[1:2], c(1L, 2L))
+  expect_equal(column.filled$panel.fill, "column")
+  expect_equal(column.filled$layout$panel.fill, "column")
+  expect_equal(column.filled$panels[["2"]]$mfg[1:2], c(2L, 1L))
+
+  expect_error(
+    mts_plot(x, panel.fill = "diagonal"),
+    "panel.fill",
+    fixed = TRUE
+  )
+})
+
 test_that("mts_plot supports selected native-grid panels and blank panels", {
   pdf.file <- tempfile(fileext = ".pdf")
   grDevices::pdf(pdf.file)

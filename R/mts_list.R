@@ -64,8 +64,14 @@ mts_list <- function(x, time = NULL, names = NULL, ...) {
 #' @param panel Panel mode. `"separate"` draws one panel per selected element.
 #'   `"overlay"` draws all selected elements on one panel.
 #' @param nrow,ncol Optional panel layout dimensions.
+#' @param panel.fill Panel filling order for separate-panel plots. `"row"`
+#'   fills across rows, equivalent to [graphics::par()] `mfrow`; `"column"`
+#'   fills down columns, equivalent to `mfcol`.
 #' @param blank.panels Optional positive integer vector of full layout panel
 #'   indices to reserve.
+#' @param panel.main Logical scalar. If `TRUE`, separate-panel mode uses
+#'   element names as panel main titles. If `FALSE`, separate panels have no
+#'   main titles.
 #' @param legend Simple legend control for `panel = "overlay"`. Use `FALSE` or
 #'   `NULL` for no legend, `TRUE` for `"topright"`, or one of `"topright"`,
 #'   `"bottomright"`, `"topleft"`, or `"bottomleft"`. Direct labels are not
@@ -80,6 +86,7 @@ mts_list <- function(x, time = NULL, names = NULL, ...) {
 #'   Okabe-Ito palette, recycled if needed.
 #' @param source Optional source label for the base curves.
 #' @param axes,frame.plot Logical values passed to [graphics::plot.default()].
+#' @param bty Box type passed to [graphics::plot.default()].
 #' @param mar,oma Optional margin settings passed to [graphics::par()].
 #' @param las Axis-label orientation passed to [graphics::plot.default()].
 #' @param xlim,ylim Optional common limits for all panels. If `NULL`, each
@@ -97,7 +104,9 @@ mts_plot.mts_list <- function(
   panel = c("separate", "overlay"),
   nrow = NULL,
   ncol = NULL,
+  panel.fill = c("row", "column"),
   blank.panels = NULL,
+  panel.main = TRUE,
   legend = FALSE,
   main = NULL,
   xlab = "Time",
@@ -109,6 +118,7 @@ mts_plot.mts_list <- function(
   source = NULL,
   axes = TRUE,
   frame.plot = TRUE,
+  bty = graphics::par("bty"),
   mar = NULL,
   oma = NULL,
   las = 1,
@@ -122,6 +132,8 @@ mts_plot.mts_list <- function(
   }
 
   panel <- match.arg(panel)
+  panel.fill <- validate_mts_panel_fill(panel.fill)
+  panel.main <- validate_mts_panel_main(panel.main)
   source <- normalise_mts_source(substitute(x), source = source)
   series.names <- names(x)
   selected.columns <- resolve_mts_columns(
@@ -158,6 +170,7 @@ mts_plot.mts_list <- function(
       type = type,
       axes = axes,
       frame.plot = frame.plot,
+      bty = bty,
       mar = mar,
       oma = oma,
       las = las,
@@ -178,6 +191,7 @@ mts_plot.mts_list <- function(
   data.panels <- setdiff(seq_len(total.panels), blank.panels)
   panel.roles <- mts_panel_roles(total.panels, blank.panels)
   layout <- mts_layout_dims(total.panels, nrow = nrow, ncol = ncol)
+  layout$panel.fill <- panel.fill
   graphics.parameters <- resolve_mts_graphics(
     n = length(selected.columns),
     col = col,
@@ -192,7 +206,7 @@ mts_plot.mts_list <- function(
   if (!is.null(oma)) {
     graphics::par(oma = oma)
   }
-  graphics::par(mfrow = c(layout$nrow, layout$ncol))
+  set_mts_panel_layout(layout, panel.fill = panel.fill)
 
   usr <- vector("list", total.panels)
   mfg <- vector("list", total.panels)
@@ -226,12 +240,13 @@ mts_plot.mts_list <- function(
       type = type,
       xlab = xlab,
       ylab = panel.ylab,
-      main = panel.name,
+      main = if (panel.main) panel.name else "",
       col = graphics.parameters$col[[data.index]],
       lty = graphics.parameters$lty[[data.index]],
       lwd = graphics.parameters$lwd[[data.index]],
       axes = axes,
       frame.plot = frame.plot,
+      bty = bty,
       las = las,
       xlim = current.xlim,
       ylim = current.ylim,
@@ -275,6 +290,8 @@ mts_plot.mts_list <- function(
     panel.mode = "separate",
     panel.order = data.panels,
     layout = layout,
+    panel.fill = panel.fill,
+    panel.main = panel.main,
     time = lapply(x[selected.columns], `[[`, "time"),
     usr = usr,
     mfg = mfg,
@@ -295,6 +312,7 @@ mts_plot.mts_list <- function(
     ),
     device = unname(grDevices::dev.cur()),
     created_at = Sys.time(),
+    bty = bty,
     legend = NULL,
     curves = curves
   )
@@ -329,6 +347,7 @@ mts_plot_mts_list_overlay <- function(x,
                                       type,
                                       axes,
                                       frame.plot,
+                                      bty,
                                       mar,
                                       oma,
                                       las,
@@ -370,6 +389,7 @@ mts_plot_mts_list_overlay <- function(x,
     lwd = graphics.parameters$lwd[[1L]],
     axes = axes,
     frame.plot = frame.plot,
+    bty = bty,
     las = las,
     xlim = current.xlim,
     ylim = current.ylim,
@@ -443,7 +463,9 @@ mts_plot_mts_list_overlay <- function(x,
     original.column.names = series.names,
     panel.mode = "overlay",
     panel.order = 1L,
-    layout = list(nrow = 1L, ncol = 1L),
+    layout = list(nrow = 1L, ncol = 1L, panel.fill = "row"),
+    panel.fill = "row",
+    panel.main = TRUE,
     time = lapply(selected.series, `[[`, "time"),
     usr = usr,
     mfg = mfg,
@@ -464,6 +486,7 @@ mts_plot_mts_list_overlay <- function(x,
     ),
     device = unname(grDevices::dev.cur()),
     created_at = Sys.time(),
+    bty = bty,
     legend = legend.info,
     curves = curves
   )

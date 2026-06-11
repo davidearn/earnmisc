@@ -102,6 +102,30 @@ test_that("mts_plot reserves blank panels and records data panels", {
   expect_identical(multiple.blank$curves$panel.index, c(2L, 3L, 5L))
 })
 
+test_that("mts_plot supports panel fill order for ordinary mts objects", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 21:30))
+
+  row.filled <- mts_plot(x, nrow = 2, ncol = 2, panel.fill = "row")
+  column.filled <- mts_plot(x, nrow = 2, ncol = 2, panel.fill = "column")
+
+  expect_equal(row.filled$panel.fill, "row")
+  expect_equal(row.filled$layout$panel.fill, "row")
+  expect_equal(row.filled$panels[["2"]]$mfg[1:2], c(1L, 2L))
+  expect_equal(column.filled$panel.fill, "column")
+  expect_equal(column.filled$layout$panel.fill, "column")
+  expect_equal(column.filled$panels[["2"]]$mfg[1:2], c(2L, 1L))
+
+  expect_error(
+    mts_plot(x, panel.fill = "diagonal"),
+    "panel.fill",
+    fixed = TRUE
+  )
+})
+
 test_that("mts_plot validates blank panels", {
   pdf.file <- tempfile(fileext = ".pdf")
   grDevices::pdf(pdf.file)
