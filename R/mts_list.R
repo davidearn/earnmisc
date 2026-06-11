@@ -6,8 +6,9 @@
 #' one panel per element.
 #'
 #' `mts_list` objects are intended for native-grid panel plotting. They do not
-#' interpolate series onto a common grid, and [mts_lines()] overlay support is
-#' not implemented for them.
+#' interpolate series onto a common grid. [mts_lines()] can overlay another
+#' `mts_list` on an `mts_list` plot, using each overlay series' own native
+#' time grid.
 #'
 #' @param x Non-empty list of univariate numeric series. Each element may be a
 #'   numeric vector, a univariate `ts` object, or a list with components `time`
@@ -130,9 +131,6 @@ mts_plot.mts_list <- function(
     column.names = selected.names
   )
 
-  old.par <- graphics::par(no.readonly = TRUE)
-  on.exit(graphics::par(old.par), add = TRUE)
-
   if (!is.null(mar)) {
     graphics::par(mar = mar)
   }
@@ -247,6 +245,151 @@ mts_plot.mts_list <- function(
   store_mts_plot_info(plot.info)
 
   invisible(plot.info)
+}
+
+#' @rdname mts_lines
+#' @name mts_lines
+#' @export
+mts_lines.mts_list <- function(
+  y,
+  plot.info = NULL,
+  columns = NULL,
+  match = c("position", "name"),
+  unmatched = c("error", "warn", "ignore"),
+  col = "red",
+  lty = 1,
+  lwd = 1,
+  type = "l",
+  source = NULL,
+  object.index = NULL,
+  ...
+) {
+  if (!inherits(y, "mts_list")) {
+    stop("`mts_lines.mts_list()` requires an object inheriting from 'mts_list'.",
+         call. = FALSE)
+  }
+
+  source <- normalise_mts_source(substitute(y), source = source)
+  plot.info <- resolve_mts_plot_info(plot.info, caller = "mts_lines")
+  match <- match.arg(match)
+  unmatched <- match.arg(unmatched)
+
+  series.names <- names(y)
+  selected.columns <- resolve_mts_columns(
+    columns,
+    column.names = series.names,
+    ncol = length(y),
+    argument.name = "columns"
+  )
+  selected.names <- series.names[selected.columns]
+  graphics.parameters <- resolve_mts_graphics(
+    n = length(selected.columns),
+    col = col,
+    lty = lty,
+    lwd = lwd,
+    column.names = selected.names
+  )
+  matched.panels <- match_mts_list_panels(
+    y.names = series.names,
+    y.columns = selected.columns,
+    plot.info = plot.info,
+    match = match
+  )
+  matched <- !is.na(matched.panels)
+
+  if (any(!matched)) {
+    unmatched.names <- selected.names[!matched]
+    message <- paste0(
+      "Unmatched mts_list series",
+      if (sum(!matched) == 1L) "" else "s",
+      ": ",
+      paste(unmatched.names, collapse = ", ")
+    )
+
+    if (identical(unmatched, "error")) {
+      stop(message, call. = FALSE)
+    }
+    if (identical(unmatched, "warn")) {
+      warning(message, call. = FALSE)
+    }
+  }
+
+  if (is.null(object.index)) {
+    object.index <- next_mts_object_index(plot.info)
+  }
+
+  new.curves <- vector("list", length(selected.columns))
+
+  for (selected.index in seq_along(selected.columns)) {
+    y.column <- selected.columns[[selected.index]]
+    panel.index <- matched.panels[[selected.index]]
+    drawn <- !is.na(panel.index)
+    reason <- if (drawn) NA_character_ else "unmatched"
+    panel.name <- if (drawn) plot.info$panels[[panel.index]]$name else NA_character_
+
+    if (drawn) {
+      series <- y[[y.column]]
+      enter_mts_panel(plot.info, panel.index)
+      graphics::lines(
+        x = series$time,
+        y = series$value,
+        type = type,
+        col = graphics.parameters$col[[selected.index]],
+        lty = graphics.parameters$lty[[selected.index]],
+        lwd = graphics.parameters$lwd[[selected.index]],
+        ...
+      )
+    }
+
+    new.curves[[selected.index]] <- make_mts_curve_registry(
+      source = source$key,
+      source.label = source$label,
+      object.index = object.index,
+      column = y.column,
+      name = selected.names[[selected.index]],
+      panel.index = if (drawn) panel.index else NA_integer_,
+      panel.name = panel.name,
+      col = graphics.parameters$col[[selected.index]],
+      lty = graphics.parameters$lty[[selected.index]],
+      lwd = graphics.parameters$lwd[[selected.index]],
+      type = type,
+      drawn = drawn,
+      reason = reason
+    )
+  }
+
+  plot.info$curves <- rbind(plot.info$curves, do.call(rbind, new.curves))
+  store_mts_plot_info(plot.info)
+  invisible(plot.info)
+}
+
+#' Match native-grid series to mts panels
+#'
+#' @param y.names Names of the overlay series.
+#' @param y.columns Selected overlay series indices.
+#' @param plot.info Plot metadata from [mts_plot()].
+#' @param match Matching mode.
+#'
+#' @return Integer panel indices with `NA` for unmatched names.
+#' @noRd
+match_mts_list_panels <- function(y.names, y.columns, plot.info, match) {
+  if (identical(match, "name")) {
+    selected.names <- y.names[y.columns]
+    data.positions <- match(selected.names, plot.info$column.names)
+    return(plot.info$data.panels[data.positions])
+  }
+
+  n.overlay <- length(y.columns)
+  n.panels <- length(plot.info$data.panels)
+  if (n.overlay != n.panels) {
+    stop(sprintf(
+      "mts_lines.mts_list(): overlay series count must match plotted data panel count for position matching: %d != %d.",
+      n.overlay,
+      n.panels
+    ), call. = FALSE)
+  }
+
+  plot.info$data.panels
 }
 
 #' Validate mts-list constructor dots

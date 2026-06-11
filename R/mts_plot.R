@@ -248,6 +248,9 @@ mts_plot.default <- function(
 #' If `source` is `NULL`, the source label is inferred from the expression
 #' supplied for `y`, so repeated direct calls with different inputs remain
 #' distinct in [mts_legend()] when `by = "source"`.
+#' For `mts_list` objects, [mts_lines()] overlays one native-grid series onto
+#' each plotted data panel. The `mts_list` method matches panels by position by
+#' default; set `match = "name"` to match by panel/series name.
 #'
 #' @param y Overlay multivariate time-series object.
 #' @param plot.info Plot metadata returned by [mts_plot()]. If `NULL`, the most
@@ -256,8 +259,9 @@ mts_plot.default <- function(
 #' @param match Column matching mode: `"name"` or `"position"`.
 #' @param unmatched Behaviour for unmatched overlay columns: `"warn"`,
 #'   `"error"`, or `"ignore"`.
-#' @param col,lty,lwd Overlay graphical parameters. They may be scalar,
-#'   vectorised by selected overlay column, or named by overlay column.
+#' @param col,lty,lwd,type Overlay graphical parameters. `col`, `lty`, and
+#'   `lwd` may be scalar, vectorised by selected overlay column, or named by
+#'   overlay column.
 #' @param source Optional curve source label. It may be a non-empty character
 #'   scalar or a scalar expression-like label, including output from
 #'   [nice_text()]. If `NULL`, a label is inferred from the expression supplied
@@ -274,6 +278,7 @@ mts_plot.default <- function(
 #' plot.info <- mts_plot(x)
 #' plot.info <- mts_lines(y, plot.info = plot.info)
 #'
+#' @name mts_lines
 #' @export
 mts_lines <- function(
   y,
@@ -284,6 +289,26 @@ mts_lines <- function(
   col = "red",
   lty = 1,
   lwd = 1,
+  type = "l",
+  source = NULL,
+  object.index = NULL,
+  ...
+) {
+  UseMethod("mts_lines")
+}
+
+#' @rdname mts_lines
+#' @export
+mts_lines.default <- function(
+  y,
+  plot.info = NULL,
+  columns = NULL,
+  match = c("name", "position"),
+  unmatched = c("warn", "error", "ignore"),
+  col = "red",
+  lty = 1,
+  lwd = 1,
+  type = "l",
   source = NULL,
   object.index = NULL,
   ...
@@ -353,6 +378,7 @@ mts_lines <- function(
       graphics::lines(
         x = y.data$time,
         y = y.data$matrix[, y.column],
+        type = type,
         col = graphics.parameters$col[[selected.index]],
         lty = graphics.parameters$lty[[selected.index]],
         lwd = graphics.parameters$lwd[[selected.index]],
@@ -371,7 +397,7 @@ mts_lines <- function(
       col = graphics.parameters$col[[selected.index]],
       lty = graphics.parameters$lty[[selected.index]],
       lwd = graphics.parameters$lwd[[selected.index]],
-      type = "l",
+      type = type,
       drawn = drawn,
       reason = reason
     )

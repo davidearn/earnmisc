@@ -32,8 +32,9 @@ one panel per element.
 }
 \details{
 \code{mts_list} objects are intended for native-grid panel plotting. They do not
-interpolate series onto a common grid, and \code{\link[=mts_lines]{mts_lines()}} overlay support is
-not implemented for them.
+interpolate series onto a common grid. \code{\link[=mts_lines]{mts_lines()}} can overlay another
+\code{mts_list} on an \code{mts_list} plot, using each overlay series' own native
+time grid.
 }
 \examples{
 x <- mts_list(
