@@ -2,9 +2,31 @@
 % Please edit documentation in R/mts_plot.R
 \name{mts_plot}
 \alias{mts_plot}
+\alias{mts_plot.default}
 \title{Plot a multivariate time series in panels}
 \usage{
 mts_plot(
+  x,
+  columns = NULL,
+  nrow = NULL,
+  ncol = NULL,
+  blank.panels = NULL,
+  main = NULL,
+  xlab = "Time",
+  ylab = NULL,
+  col = "black",
+  lty = 1,
+  lwd = 1,
+  type = "l",
+  source = NULL,
+  axes = TRUE,
+  frame.plot = TRUE,
+  mar = NULL,
+  oma = NULL,
+  ...
+)
+
+\method{mts_plot}{default}(
   x,
   columns = NULL,
   nrow = NULL,

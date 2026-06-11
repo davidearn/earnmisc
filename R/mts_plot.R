@@ -84,6 +84,31 @@ mts_plot <- function(
   oma = NULL,
   ...
 ) {
+  UseMethod("mts_plot")
+}
+
+#' @rdname mts_plot
+#' @export
+mts_plot.default <- function(
+  x,
+  columns = NULL,
+  nrow = NULL,
+  ncol = NULL,
+  blank.panels = NULL,
+  main = NULL,
+  xlab = "Time",
+  ylab = NULL,
+  col = "black",
+  lty = 1,
+  lwd = 1,
+  type = "l",
+  source = NULL,
+  axes = TRUE,
+  frame.plot = TRUE,
+  mar = NULL,
+  oma = NULL,
+  ...
+) {
   source <- normalise_mts_source(substitute(x), source = source)
   mts.data <- as_mts_matrix(x)
   selected.columns <- resolve_mts_columns(

@@ -17,11 +17,14 @@ An object suitable for \code{\link[=mts_plot]{mts_plot()}} and related helpers.
 \description{
 \code{as_mts()} is an S3 generic for converting supported objects to
 multivariate time-series objects suitable for \code{\link[=mts_plot]{mts_plot()}} and related
-\verb{mts_*} helpers.
+\verb{mts_*} helpers. Methods may return ordinary \code{mts} objects when a common
+time grid is available, or native-grid objects such as \code{\link[=mts_list]{mts_list()}} when
+supported.
 }
 \details{
 Methods should return an object that \code{\link[=mts_plot]{mts_plot()}} can safely treat as
-multivariate time-series data, typically an object inheriting from \code{mts}.
+multivariate time-series data, typically an object inheriting from \code{mts} or
+an \code{mts_list} object.
 }
 \examples{
 x <- stats::ts(cbind(a = 1:5, b = 6:10))

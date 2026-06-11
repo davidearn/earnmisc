@@ -32,6 +32,7 @@ test_that("mts helper exports use the mts prefix", {
     "mts_abline",
     "mts_xys_line",
     "mts_legend",
+    "mts_list",
     "mts_set_panel",
     "mts_plot_overlay"
   )

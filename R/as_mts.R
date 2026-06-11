@@ -2,10 +2,13 @@
 #'
 #' `as_mts()` is an S3 generic for converting supported objects to
 #' multivariate time-series objects suitable for [mts_plot()] and related
-#' `mts_*` helpers.
+#' `mts_*` helpers. Methods may return ordinary `mts` objects when a common
+#' time grid is available, or native-grid objects such as [mts_list()] when
+#' supported.
 #'
 #' Methods should return an object that [mts_plot()] can safely treat as
-#' multivariate time-series data, typically an object inheriting from `mts`.
+#' multivariate time-series data, typically an object inheriting from `mts` or
+#' an `mts_list` object.
 #'
 #' @param x Object to convert.
 #' @param ... Additional arguments passed to methods.
