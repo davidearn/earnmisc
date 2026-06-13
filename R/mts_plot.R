@@ -945,6 +945,157 @@ mts_legend <- function(
   invisible(out)
 }
 
+#' Add a label to an mts plot panel
+#'
+#' Draw a single text label in one panel created by [mts_plot()]. This helper
+#' adds to an existing panel without clearing it, unlike [mts_set_panel()].
+#'
+#' @param plot.info Plot metadata returned by [mts_plot()].
+#' @param panel Full-layout panel index. Panel numbering follows the layout
+#'   order recorded in `plot.info$panels`, including both data panels and
+#'   reserved blank panels.
+#' @param label Single label to draw. Character strings, plotmath expressions,
+#'   and labels returned by [nice_text()] are accepted.
+#' @param position Label position. Use one of `"topleft"`, `"topright"`,
+#'   `"bottomleft"`, `"bottomright"`, `"center"`, or `"centre"`, or a numeric
+#'   vector `c(x, y)` giving user coordinates in the selected panel.
+#' @param inset Numeric inset as a fraction of the panel user-coordinate range.
+#'   A scalar is used for both directions; a length-two vector is interpreted
+#'   as x and y inset.
+#' @param cex,font,col Text graphical parameters passed to [graphics::text()].
+#' @param xpd Clipping control. The previous `xpd` value is restored on exit.
+#' @param ... Additional arguments passed to [graphics::text()].
+#'
+#' @return Invisibly returns `plot.info`.
+#'
+#' @examples
+#' x <- stats::ts(cbind(a = 1:10, b = 11:20))
+#' plot.info <- mts_plot(x)
+#' mts_panel_label(plot.info, panel = 1, label = "A")
+#'
+#' @export
+mts_panel_label <- function(plot.info,
+                            panel = 1,
+                            label,
+                            position = "topleft",
+                            inset = 0.02,
+                            cex = 1,
+                            font = 2,
+                            col = "black",
+                            xpd = NA,
+                            ...) {
+  plot.info <- validate_explicit_mts_plot_info(plot.info, caller = "mts_panel_label")
+  panel <- validate_mts_panel_index(panel, plot.info)
+  label <- validate_mts_panel_label(label)
+  inset <- validate_mts_panel_inset(inset)
+
+  old.mfg <- graphics::par("mfg")
+  old.usr <- graphics::par("usr")
+  old.xpd <- graphics::par("xpd")
+  on.exit({
+    graphics::par(mfg = old.mfg)
+    graphics::par(usr = old.usr)
+    graphics::par(xpd = old.xpd)
+  }, add = TRUE)
+
+  enter_mts_panel(plot.info, panel)
+  graphics::par(xpd = xpd)
+  placement <- resolve_mts_panel_position(position, inset = inset)
+  graphics::text(
+    x = placement$x,
+    y = placement$y,
+    labels = label,
+    adj = placement$adj,
+    cex = cex,
+    font = font,
+    col = col,
+    ...
+  )
+
+  invisible(plot.info)
+}
+
+#' Add a legend to an mts plot panel
+#'
+#' Draw a simple user-specified legend in one panel created by [mts_plot()].
+#' Unlike [mts_legend()], this helper does not inspect the curve registry or
+#' choose a reserved blank panel. It is intended for explicit panel annotations
+#' where the caller already knows the legend labels and graphical styles.
+#'
+#' @param plot.info Plot metadata returned by [mts_plot()].
+#' @param panel Full-layout panel index. Panel numbering follows the layout
+#'   order recorded in `plot.info$panels`, including both data panels and
+#'   reserved blank panels.
+#' @param labels Legend labels. Any positive-length vector accepted by
+#'   [graphics::legend()] can be used, including expression-like labels.
+#' @param position Legend position. Use one of `"topleft"`, `"topright"`,
+#'   `"bottomleft"`, `"bottomright"`, `"center"`, or `"centre"`, or a numeric
+#'   vector `c(x, y)` giving user coordinates in the selected panel.
+#' @param inset,cex,bty Arguments passed to [graphics::legend()].
+#' @param xpd Clipping control. The previous `xpd` value is restored on exit.
+#' @param ... Additional arguments passed to [graphics::legend()], including
+#'   vectorised style arguments such as `col`, `lty`, `lwd`, and `pch`.
+#'
+#' @return Invisibly returns `plot.info`.
+#'
+#' @examples
+#' x <- stats::ts(cbind(a = 1:10, b = 11:20))
+#' plot.info <- mts_plot(x)
+#' mts_panel_legend(
+#'   plot.info,
+#'   panel = 1,
+#'   labels = c("exact", "global"),
+#'   col = c("grey60", "black"),
+#'   lty = c(1, 2),
+#'   lwd = c(3, 2)
+#' )
+#'
+#' @export
+mts_panel_legend <- function(plot.info,
+                             panel = 1,
+                             labels,
+                             position = "topright",
+                             inset = 0.02,
+                             cex = 0.9,
+                             bty = "n",
+                             xpd = NA,
+                             ...) {
+  plot.info <- validate_explicit_mts_plot_info(plot.info, caller = "mts_panel_legend")
+  panel <- validate_mts_panel_index(panel, plot.info)
+  labels <- validate_mts_panel_legend_labels(labels)
+  position <- normalise_mts_panel_legend_position(position)
+
+  old.mfg <- graphics::par("mfg")
+  old.usr <- graphics::par("usr")
+  old.xpd <- graphics::par("xpd")
+  on.exit({
+    graphics::par(mfg = old.mfg)
+    graphics::par(usr = old.usr)
+    graphics::par(xpd = old.xpd)
+  }, add = TRUE)
+
+  enter_mts_panel(plot.info, panel)
+  graphics::par(xpd = xpd)
+
+  legend.args <- merge_call_args(
+    defaults = c(
+      list(
+        legend = labels,
+        inset = inset,
+        cex = cex,
+        bty = bty
+      ),
+      position
+    ),
+    overrides = list(...),
+    protected = character(),
+    argument.name = "..."
+  )
+  do.call(graphics::legend, legend.args)
+
+  invisible(plot.info)
+}
+
 #' Coerce an object to mts plotting data
 #'
 #' Return matrix data, time index, and column names for an mts-like object.
@@ -1719,6 +1870,25 @@ resolve_mts_plot_info <- function(plot.info = NULL, caller = "mts helper") {
   plot.info
 }
 
+#' Validate explicit mts plot metadata
+#'
+#' Validate panel-annotation metadata without falling back to the stored
+#' plot-info object.
+#'
+#' @param plot.info Object to validate.
+#' @param caller Name of calling function for error messages.
+#'
+#' @return Validated `earnmisc_mts_plot_info` object.
+#' @noRd
+validate_explicit_mts_plot_info <- function(plot.info, caller) {
+  if (missing(plot.info) || is.null(plot.info)) {
+    stop("`", caller, "()` requires a `plot.info` object returned by `mts_plot()`.",
+         call. = FALSE)
+  }
+  validate_mts_plot_info(plot.info)
+  plot.info
+}
+
 #' Validate an mts panel index
 #'
 #' Validate a scalar full-layout panel index for an mts plot-info object.
@@ -1736,6 +1906,147 @@ validate_mts_panel_index <- function(panel, plot.info) {
   }
 
   as.integer(panel)
+}
+
+#' Validate an mts panel label
+#'
+#' @param label User-supplied label.
+#'
+#' @return The original label.
+#' @noRd
+validate_mts_panel_label <- function(label) {
+  if (missing(label) || is.null(label) || length(label) != 1L) {
+    stop("`label` must be a single label.", call. = FALSE)
+  }
+  if (is.character(label) && (is.na(label) || !nzchar(label))) {
+    stop("`label` must be a non-empty label.", call. = FALSE)
+  }
+  label
+}
+
+#' Validate mts panel legend labels
+#'
+#' @param labels User-supplied legend labels.
+#'
+#' @return The original labels.
+#' @noRd
+validate_mts_panel_legend_labels <- function(labels) {
+  if (missing(labels) || is.null(labels) || length(labels) == 0L) {
+    stop("`labels` must contain at least one legend label.", call. = FALSE)
+  }
+  if (is.character(labels) && any(is.na(labels) | !nzchar(labels))) {
+    stop("`labels` must contain non-empty legend labels.", call. = FALSE)
+  }
+  labels
+}
+
+#' Validate mts panel inset
+#'
+#' @param inset Numeric inset.
+#'
+#' @return Numeric length-two inset.
+#' @noRd
+validate_mts_panel_inset <- function(inset) {
+  if (!is.numeric(inset) || !(length(inset) %in% c(1L, 2L)) ||
+      anyNA(inset) || any(!is.finite(inset)) || any(inset < 0)) {
+    stop("`inset` must be a finite non-negative numeric scalar or length-two vector.",
+         call. = FALSE)
+  }
+  rep(inset, length.out = 2L)
+}
+
+#' Resolve an mts panel label position
+#'
+#' @param position Keyword position or numeric coordinates.
+#' @param inset Numeric length-two inset.
+#'
+#' @return List with `x`, `y`, and `adj`.
+#' @noRd
+resolve_mts_panel_position <- function(position, inset) {
+  if (is.numeric(position)) {
+    if (length(position) != 2L || anyNA(position) || any(!is.finite(position))) {
+      stop("`position` as numeric coordinates must be a finite length-two vector.",
+           call. = FALSE)
+    }
+    return(list(x = position[[1L]], y = position[[2L]], adj = c(0.5, 0.5)))
+  }
+
+  position <- validate_mts_panel_position_keyword(position)
+  usr <- graphics::par("usr")
+  x.span <- usr[[2L]] - usr[[1L]]
+  y.span <- usr[[4L]] - usr[[3L]]
+
+  switch(position,
+    topleft = list(
+      x = usr[[1L]] + inset[[1L]] * x.span,
+      y = usr[[4L]] - inset[[2L]] * y.span,
+      adj = c(0, 1)
+    ),
+    topright = list(
+      x = usr[[2L]] - inset[[1L]] * x.span,
+      y = usr[[4L]] - inset[[2L]] * y.span,
+      adj = c(1, 1)
+    ),
+    bottomleft = list(
+      x = usr[[1L]] + inset[[1L]] * x.span,
+      y = usr[[3L]] + inset[[2L]] * y.span,
+      adj = c(0, 0)
+    ),
+    bottomright = list(
+      x = usr[[2L]] - inset[[1L]] * x.span,
+      y = usr[[3L]] + inset[[2L]] * y.span,
+      adj = c(1, 0)
+    ),
+    center = list(
+      x = usr[[1L]] + x.span / 2,
+      y = usr[[3L]] + y.span / 2,
+      adj = c(0.5, 0.5)
+    )
+  )
+}
+
+#' Validate an mts panel position keyword
+#'
+#' @param position User-supplied position.
+#'
+#' @return Normalised keyword.
+#' @noRd
+validate_mts_panel_position_keyword <- function(position) {
+  positions <- c("topleft", "topright", "bottomleft", "bottomright", "center", "centre")
+  if (!is.character(position) ||
+      length(position) != 1L ||
+      is.na(position) ||
+      !(position %in% positions)) {
+    stop(
+      "`position` must be numeric coordinates or one of: ",
+      paste(sprintf("\"%s\"", positions), collapse = ", "),
+      ".",
+      call. = FALSE
+    )
+  }
+  if (identical(position, "centre")) {
+    return("center")
+  }
+  position
+}
+
+#' Normalise an mts panel legend position
+#'
+#' @param position User-supplied position.
+#'
+#' @return List of position arguments for [graphics::legend()].
+#' @noRd
+normalise_mts_panel_legend_position <- function(position) {
+  if (is.numeric(position)) {
+    if (length(position) != 2L || anyNA(position) || any(!is.finite(position))) {
+      stop("`position` as numeric coordinates must be a finite length-two vector.",
+           call. = FALSE)
+    }
+    return(list(x = position[[1L]], y = position[[2L]]))
+  }
+
+  position <- validate_mts_panel_position_keyword(position)
+  list(x = position)
 }
 
 #' Select mts panels

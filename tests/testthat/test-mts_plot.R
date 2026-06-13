@@ -32,6 +32,8 @@ test_that("mts helper exports use the mts prefix", {
     "mts_abline",
     "mts_xys_line",
     "mts_legend",
+    "mts_panel_label",
+    "mts_panel_legend",
     "mts_list",
     "mts_set_panel",
     "mts_plot_overlay"
@@ -817,6 +819,85 @@ test_that("mts_legend requires a panel when no blank panel exists", {
 
   expect_error(mts_legend(plot.info), "reserved `blank.panels`")
   expect_silent(mts_legend(plot.info, panel = 1))
+})
+
+test_that("mts panel label and legend helpers annotate selected panels", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20, c = 20:29))
+  plot.info <- mts_plot(x, nrow = 2, ncol = 2)
+
+  first <- withVisible(mts_panel_label(plot.info, panel = 1, label = "A"))
+  expect_false(first$visible)
+  expect_s3_class(first$value, "earnmisc_mts_plot_info")
+
+  expect_silent(
+    mts_panel_label(
+      plot.info,
+      panel = 2,
+      label = "B",
+      position = "bottomright",
+      xpd = NA
+    )
+  )
+  expect_silent(
+    mts_panel_label(
+      plot.info,
+      panel = 3,
+      label = "C",
+      position = c(5, 25)
+    )
+  )
+
+  expect_silent(
+    mts_panel_legend(
+      plot.info,
+      panel = 1,
+      labels = c("exact", "global", "KM"),
+      col = c("grey60", "black", "red"),
+      lty = c(1, 2, 3),
+      lwd = c(3, 2, 1)
+    )
+  )
+  expect_silent(
+    mts_panel_legend(
+      plot.info,
+      panel = 2,
+      labels = c("a", "b"),
+      position = c(3, 15),
+      pch = c(1, 16)
+    )
+  )
+})
+
+test_that("mts panel label and legend helpers validate inputs and restore xpd", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(a = 1:10, b = 11:20))
+  plot.info <- mts_plot(x)
+
+  graphics::par(xpd = FALSE)
+  expect_false(graphics::par("xpd"))
+  mts_panel_label(plot.info, panel = 1, label = "A", xpd = NA)
+  expect_false(graphics::par("xpd"))
+
+  graphics::par(xpd = FALSE)
+  mts_panel_legend(plot.info, panel = 1, labels = c("exact", "global"), xpd = NA)
+  expect_false(graphics::par("xpd"))
+
+  expect_error(mts_panel_label(plot.info, panel = 99, label = "A"), "valid full-layout panel")
+  expect_error(mts_panel_legend(plot.info, panel = 99, labels = "A"), "valid full-layout panel")
+  expect_error(mts_panel_label(list(), panel = 1, label = "A"), "`plot.info`")
+  expect_error(mts_panel_legend(NULL, panel = 1, labels = "A"), "requires a `plot.info` object")
+  expect_error(mts_panel_label(label = "A"), "requires a `plot.info` object")
+  expect_error(mts_panel_label(plot.info, panel = 1, label = ""), "`label`")
+  expect_error(mts_panel_legend(plot.info, panel = 1, labels = character()), "`labels`")
+  expect_error(mts_panel_label(plot.info, panel = 1, label = "A", position = "middle"), "`position`")
+  expect_error(mts_panel_legend(plot.info, panel = 1, labels = "A", position = c(1, 2, 3)), "`position`")
 })
 
 test_that("mts_plot_overlay lets plot.args override base defaults", {

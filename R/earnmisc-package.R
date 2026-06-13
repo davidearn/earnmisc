@@ -11,7 +11,7 @@
 #'   and the S3 generic `xys_line()`.
 #' * Multivariate time-series plotting helpers, including reserved blank panels,
 #'   `as_mts()`, `mts_list()`, `mts_abline()`, `mts_xys_line()`, and
-#'   `mts_legend()`.
+#'   `mts_legend()`, `mts_panel_label()`, and `mts_panel_legend()`.
 #' * Base graphics plot metadata helpers.
 #' * List and object representation helpers.
 #' * Lightweight TeX label helpers, including `nice_text()`.

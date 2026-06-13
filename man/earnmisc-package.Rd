@@ -18,7 +18,7 @@ The main utility families are:
 and the S3 generic \code{xys_line()}.
 \item Multivariate time-series plotting helpers, including reserved blank panels,
 \code{as_mts()}, \code{mts_list()}, \code{mts_abline()}, \code{mts_xys_line()}, and
-\code{mts_legend()}.
+\code{mts_legend()}, \code{mts_panel_label()}, and \code{mts_panel_legend()}.
 \item Base graphics plot metadata helpers.
 \item List and object representation helpers.
 \item Lightweight TeX label helpers, including \code{nice_text()}.
