@@ -1028,9 +1028,12 @@ mts_panel_label <- function(plot.info,
 #'   reserved blank panels.
 #' @param labels Legend labels. Any positive-length vector accepted by
 #'   [graphics::legend()] can be used, including expression-like labels.
-#' @param position Legend position. Use one of `"topleft"`, `"topright"`,
-#'   `"bottomleft"`, `"bottomright"`, `"center"`, or `"centre"`, or a numeric
-#'   vector `c(x, y)` giving user coordinates in the selected panel.
+#' @param position Legend position. Standard [graphics::legend()] character
+#'   positions are passed directly to [graphics::legend()] after the requested
+#'   panel is selected: `"bottomright"`, `"bottom"`, `"bottomleft"`, `"left"`,
+#'   `"topleft"`, `"top"`, `"topright"`, `"right"`, and `"center"`. The
+#'   spelling `"centre"` is accepted as an alias for `"center"`. Numeric
+#'   coordinates `c(x, y)` give user coordinates in the selected panel.
 #' @param inset,cex,bty Arguments passed to [graphics::legend()].
 #' @param xpd Clipping control. The previous `xpd` value is restored on exit.
 #' @param ... Additional arguments passed to [graphics::legend()], including
@@ -1083,7 +1086,8 @@ mts_panel_legend <- function(plot.info,
         legend = labels,
         inset = inset,
         cex = cex,
-        bty = bty
+        bty = bty,
+        xpd = xpd
       ),
       position
     ),
@@ -2045,8 +2049,44 @@ normalise_mts_panel_legend_position <- function(position) {
     return(list(x = position[[1L]], y = position[[2L]]))
   }
 
-  position <- validate_mts_panel_position_keyword(position)
+  position <- validate_mts_panel_legend_position_keyword(position)
   list(x = position)
+}
+
+#' Validate an mts panel legend position keyword
+#'
+#' @param position User-supplied position.
+#'
+#' @return Normalised keyword.
+#' @noRd
+validate_mts_panel_legend_position_keyword <- function(position) {
+  positions <- c(
+    "bottomright",
+    "bottom",
+    "bottomleft",
+    "left",
+    "topleft",
+    "top",
+    "topright",
+    "right",
+    "center",
+    "centre"
+  )
+  if (!is.character(position) ||
+      length(position) != 1L ||
+      is.na(position) ||
+      !(position %in% positions)) {
+    stop(
+      "`position` must be numeric coordinates or one of: ",
+      paste(sprintf("\"%s\"", positions), collapse = ", "),
+      ".",
+      call. = FALSE
+    )
+  }
+  if (identical(position, "centre")) {
+    return("center")
+  }
+  position
 }
 
 #' Select mts panels

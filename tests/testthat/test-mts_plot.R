@@ -861,6 +861,38 @@ test_that("mts panel label and legend helpers annotate selected panels", {
       lwd = c(3, 2, 1)
     )
   )
+  legend.positions <- c(
+    "bottomright",
+    "bottom",
+    "bottomleft",
+    "left",
+    "topleft",
+    "top",
+    "topright",
+    "right",
+    "center"
+  )
+  for (position in legend.positions) {
+    expect_silent(
+      mts_panel_legend(
+        plot.info,
+        panel = 1,
+        labels = c("exact", "global"),
+        position = position,
+        col = c("grey60", "black"),
+        lty = c(1, 2),
+        lwd = c(3, 2)
+      )
+    )
+  }
+  expect_silent(
+    mts_panel_legend(
+      plot.info,
+      panel = 1,
+      labels = c("exact", "global"),
+      position = "centre"
+    )
+  )
   expect_silent(
     mts_panel_legend(
       plot.info,
@@ -898,6 +930,7 @@ test_that("mts panel label and legend helpers validate inputs and restore xpd", 
   expect_error(mts_panel_legend(plot.info, panel = 1, labels = character()), "`labels`")
   expect_error(mts_panel_label(plot.info, panel = 1, label = "A", position = "middle"), "`position`")
   expect_error(mts_panel_legend(plot.info, panel = 1, labels = "A", position = c(1, 2, 3)), "`position`")
+  expect_error(mts_panel_legend(plot.info, panel = 1, labels = "A", position = "middle"), "`position`")
 })
 
 test_that("mts_plot_overlay lets plot.args override base defaults", {

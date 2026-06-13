@@ -26,9 +26,12 @@ reserved blank panels.}
 \item{labels}{Legend labels. Any positive-length vector accepted by
 \code{\link[graphics:legend]{graphics::legend()}} can be used, including expression-like labels.}
 
-\item{position}{Legend position. Use one of \code{"topleft"}, \code{"topright"},
-\code{"bottomleft"}, \code{"bottomright"}, \code{"center"}, or \code{"centre"}, or a numeric
-vector \code{c(x, y)} giving user coordinates in the selected panel.}
+\item{position}{Legend position. Standard \code{\link[graphics:legend]{graphics::legend()}} character
+positions are passed directly to \code{\link[graphics:legend]{graphics::legend()}} after the requested
+panel is selected: \code{"bottomright"}, \code{"bottom"}, \code{"bottomleft"}, \code{"left"},
+\code{"topleft"}, \code{"top"}, \code{"topright"}, \code{"right"}, and \code{"center"}. The
+spelling \code{"centre"} is accepted as an alias for \code{"center"}. Numeric
+coordinates \code{c(x, y)} give user coordinates in the selected panel.}
 
 \item{inset, cex, bty}{Arguments passed to \code{\link[graphics:legend]{graphics::legend()}}.}
 
