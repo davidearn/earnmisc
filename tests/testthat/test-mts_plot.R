@@ -933,6 +933,89 @@ test_that("mts panel label and legend helpers validate inputs and restore xpd", 
   expect_error(mts_panel_legend(plot.info, panel = 1, labels = "A", position = "middle"), "`position`")
 })
 
+test_that("direct_curve_label labels curves by peak-based placements", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- seq(-2, 2, length.out = 101)
+  y <- exp(-x^2)
+  graphics::plot(x, y, type = "l")
+
+  expect_silent(
+    point.x <- direct_curve_label(
+      x,
+      y,
+      label = "x offset",
+      placement = "x_offset"
+    )
+  )
+  expect_named(point.x, c("x", "y"))
+  expect_true(all(is.finite(point.x)))
+
+  expect_silent(
+    point.frac <- direct_curve_label(
+      x,
+      y,
+      label = "fraction",
+      placement = "peak_fraction",
+      peak.fraction = 0.7
+    )
+  )
+  expect_named(point.frac, c("x", "y"))
+  expect_true(all(is.finite(point.frac)))
+
+  expect_silent(
+    point.peak <- direct_curve_label(
+      x,
+      y,
+      label = "peak",
+      placement = "peak_fraction",
+      peak.fraction = 1
+    )
+  )
+  expect_equal(unname(point.peak[["x"]]), x[which.max(y)])
+  expect_equal(unname(point.peak[["y"]]), max(y))
+})
+
+test_that("direct_curve_label validates inputs and restores xpd", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- seq(-2, 2, length.out = 101)
+  y <- exp(-x^2)
+  graphics::plot(x, y, type = "l")
+
+  graphics::par(xpd = FALSE)
+  expect_false(graphics::par("xpd"))
+  direct_curve_label(x, y, label = "restored", xpd = NA)
+  expect_false(graphics::par("xpd"))
+
+  expect_error(
+    direct_curve_label(x, y, label = "bad", peak.fraction = 0),
+    "`peak.fraction`"
+  )
+  expect_error(
+    direct_curve_label(x, y, label = "bad", peak.fraction = 1.1),
+    "`peak.fraction`"
+  )
+  expect_error(
+    direct_curve_label(x[-1], y, label = "bad"),
+    "same length"
+  )
+  expect_error(
+    direct_curve_label(c(0, NA_real_, 1), c(0, 1, 0), label = "bad"),
+    "`x` must contain only finite values",
+    fixed = TRUE
+  )
+  expect_error(
+    direct_curve_label(c(0, 1, 2), c(0, Inf, 0), label = "bad"),
+    "`y` must contain only finite values",
+    fixed = TRUE
+  )
+})
+
 test_that("mts_plot_overlay lets plot.args override base defaults", {
   pdf.file <- tempfile(fileext = ".pdf")
   grDevices::pdf(pdf.file)

@@ -15,7 +15,7 @@ The main utility families are:
 \item Okabe-Ito colour palette helpers.
 \item Colour swatch display helpers.
 \item Small base graphics helpers, including \code{aligned_text()}, \code{axis_labels()},
-and the S3 generic \code{xys_line()}.
+\code{direct_curve_label()}, and the S3 generic \code{xys_line()}.
 \item Multivariate time-series plotting helpers, including reserved blank panels,
 \code{as_mts()}, \code{mts_list()}, \code{mts_abline()}, \code{mts_xys_line()}, and
 \code{mts_legend()}, \code{mts_panel_label()}, and \code{mts_panel_legend()}.
