@@ -203,6 +203,8 @@ along_curve_label <- function(x, y, label,
       y = final.point$point[["y"]],
       srt = label.srt,
       cex = cex,
+      font = font,
+      adj = adj,
       knockout.pad = knockout.pad
     )
   }
@@ -936,17 +938,22 @@ render_along_curve_label <- function(label, nice.text, nice.text.args) {
 #' @return Data frame of polygon vertices.
 #' @noRd
 resolve_along_curve_knockout_polygon <- function(label, x, y, srt,
-                                                 cex, knockout.pad) {
-  width <- graphics::strwidth(label, cex = cex, units = "inches") *
+                                                 cex, font, adj,
+                                                 knockout.pad) {
+  width <- graphics::strwidth(label, cex = cex, font = font,
+                              units = "inches") *
     knockout.pad[[1L]]
-  height <- graphics::strheight(label, cex = cex, units = "inches") *
+  height <- graphics::strheight(label, cex = cex, font = font,
+                                units = "inches") *
     knockout.pad[[2L]]
   if (!is.finite(width) || width <= 0) {
-    width <- graphics::strwidth("M", cex = cex, units = "inches") *
+    width <- graphics::strwidth("M", cex = cex, font = font,
+                                units = "inches") *
       knockout.pad[[1L]]
   }
   if (!is.finite(height) || height <= 0) {
-    height <- graphics::strheight("M", cex = cex, units = "inches") *
+    height <- graphics::strheight("M", cex = cex, font = font,
+                                  units = "inches") *
       knockout.pad[[2L]]
   }
 
@@ -956,16 +963,20 @@ resolve_along_curve_knockout_polygon <- function(label, x, y, srt,
   )
   theta <- srt * pi / 180
   rotation <- matrix(
-    c(cos(theta), sin(theta), -sin(theta), cos(theta)),
+    c(cos(theta), -sin(theta), sin(theta), cos(theta)),
     nrow = 2L,
     byrow = TRUE
   )
+  x.left <- -adj[[1L]] * width
+  x.right <- (1 - adj[[1L]]) * width
+  y.bottom <- -adj[[2L]] * height
+  y.top <- (1 - adj[[2L]]) * height
   corners <- matrix(
     c(
-      -width / 2, -height / 2,
-      width / 2, -height / 2,
-      width / 2, height / 2,
-      -width / 2, height / 2
+      x.left, y.bottom,
+      x.right, y.bottom,
+      x.right, y.top,
+      x.left, y.top
     ),
     ncol = 2L,
     byrow = TRUE
@@ -988,6 +999,8 @@ resolve_along_curve_knockout_polygon <- function(label, x, y, srt,
     y.inches = inches[, 2L],
     width.inches = width,
     height.inches = height,
+    adj.x = adj[[1L]],
+    adj.y = adj[[2L]],
     stringsAsFactors = FALSE
   )
 }

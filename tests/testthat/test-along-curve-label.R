@@ -5,6 +5,39 @@ with_along_curve_pdf <- function(expr) {
   eval.parent(substitute(expr))
 }
 
+expect_valid_knockout_polygon <- function(info) {
+  polygon <- info$knockout.polygon
+  expect_s3_class(polygon, "data.frame")
+  expect_equal(nrow(polygon), 4L)
+  expect_true(all(c("x", "y", "x.user", "y.user", "x.inches", "y.inches") %in%
+                    names(polygon)))
+  expect_true(all(is.finite(polygon$x)))
+  expect_true(all(is.finite(polygon$y)))
+  expect_true(all(is.finite(polygon$x.user)))
+  expect_true(all(is.finite(polygon$y.user)))
+  expect_true(all(is.finite(polygon$x.inches)))
+  expect_true(all(is.finite(polygon$y.inches)))
+  expect_gt(diff(range(polygon$x.inches)), 0)
+  expect_gt(diff(range(polygon$y.inches)), 0)
+
+  next.vertex <- c(seq_len(nrow(polygon))[-1L], 1L)
+  area <- 0.5 * abs(sum(
+    polygon$x.inches * polygon$y.inches[next.vertex] -
+      polygon$y.inches * polygon$x.inches[next.vertex]
+  ))
+  expect_gt(area, 0)
+}
+
+expect_knockout_matches_text_angle <- function(info) {
+  polygon <- info$knockout.polygon
+  edge.angle <- atan2(
+    polygon$y.inches[[2L]] - polygon$y.inches[[1L]],
+    polygon$x.inches[[2L]] - polygon$x.inches[[1L]]
+  ) * 180 / pi
+  angle.diff <- abs(((edge.angle - info$srt + 180) %% 360) - 180)
+  expect_lt(angle.diff, 1e-8)
+}
+
 test_that("along_curve_label places labels by displayed arclength fraction", {
   info <- with_along_curve_pdf({
     x <- seq(0, 2 * pi, length.out = 200)
@@ -130,13 +163,43 @@ test_that("along_curve_label supports knockout, nice_text, and draw-free metadat
 
   expect_true(out$knockout$knockout)
   expect_true(out$knockout$knockout.drawn)
-  expect_s3_class(out$knockout$knockout.polygon, "data.frame")
-  expect_equal(nrow(out$knockout$knockout.polygon), 4)
+  expect_valid_knockout_polygon(out$knockout)
+  expect_knockout_matches_text_angle(out$knockout)
   expect_true(is.character(out$tex$plotting.label))
   expect_false(out$metadata$drawn)
   expect_false(out$metadata$text.drawn)
   expect_false(out$metadata$knockout.drawn)
-  expect_s3_class(out$metadata$knockout.polygon, "data.frame")
+  expect_valid_knockout_polygon(out$metadata)
+  expect_knockout_matches_text_angle(out$metadata)
+})
+
+test_that("along_curve_label computes visible knockout polygons for rotated labels", {
+  out <- with_along_curve_pdf({
+    x <- seq(0, 2 * pi, length.out = 200)
+    y <- sin(x)
+    graphics::plot(x, y, type = "l")
+    centred <- along_curve_label(
+      x, y, "knockout",
+      at = "fraction",
+      fraction = 0.3,
+      knockout = TRUE
+    )
+    left <- along_curve_label(
+      x, y, "left",
+      at = "fraction",
+      fraction = 0.4,
+      adj = c(0, 0.5),
+      knockout = TRUE
+    )
+    list(centred = centred, left = left)
+  })
+
+  expect_valid_knockout_polygon(out$centred)
+  expect_knockout_matches_text_angle(out$centred)
+  expect_valid_knockout_polygon(out$left)
+  expect_knockout_matches_text_angle(out$left)
+  expect_equal(out$left$knockout.polygon$adj.x[[1L]], 0)
+  expect_equal(out$left$knockout.polygon$adj.y[[1L]], 0.5)
 })
 
 test_that("along_curve_label handles log-scale axes", {
@@ -153,7 +216,12 @@ test_that("along_curve_label handles log-scale axes", {
       point = c(2, 0.4),
       offset = c(0.02, 0.03)
     )
-    list(log.y = log.y, log.xy = log.xy)
+    log.knockout <- along_curve_label(
+      x, y, "log knockout",
+      fraction = 0.35,
+      knockout = TRUE
+    )
+    list(log.y = log.y, log.xy = log.xy, log.knockout = log.knockout)
   })
 
   expect_true(all(is.finite(out$log.y$point)))
@@ -161,6 +229,8 @@ test_that("along_curve_label handles log-scale axes", {
   expect_true(all(is.finite(out$log.xy$point)))
   expect_gt(out$log.xy$point[["x"]], 0)
   expect_gt(out$log.xy$point[["y"]], 0)
+  expect_valid_knockout_polygon(out$log.knockout)
+  expect_knockout_matches_text_angle(out$log.knockout)
 })
 
 test_that("along_curve_label validates inputs and restores xpd", {
