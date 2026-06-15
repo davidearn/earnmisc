@@ -77,7 +77,8 @@ convenience.
 Labels are passed through \code{\link[=nice_text]{nice_text()}} before drawing, so TeX-like labels
 work on ordinary graphics devices and tikz devices. The block can be placed
 either by supplying a numeric top-left anchor \verb{(x, y)} or by supplying a
-legend-style keyword such as \code{"bottomright"} or \code{"topleft"}.
+legend-style keyword such as \code{"bottomright"} or \code{"topleft"}. Keyword
+placement and block layout are aware of the active log-axis state.
 }
 \examples{
 plot(0, 0, type = "n", xlim = c(0, 1), ylim = c(0, 1), las = 1)

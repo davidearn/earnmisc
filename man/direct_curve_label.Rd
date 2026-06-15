@@ -33,7 +33,8 @@ the first descending-side point where the curve has fallen to
 \code{peak.fraction * peak.y}, using linear interpolation when possible.}
 
 \item{x.offset}{Non-negative horizontal offset, as a fraction of the current
-panel width, used by \code{placement = "x_offset"}.}
+panel width, used by \code{placement = "x_offset"}. On a log x-axis this is
+interpreted on the displayed log scale.}
 
 \item{peak.fraction}{Peak-height fraction used by
 \code{placement = "peak_fraction"}. Values must satisfy
@@ -41,7 +42,8 @@ panel width, used by \code{placement = "x_offset"}.}
 is used.}
 
 \item{x.text.offset, y.text.offset}{Text offsets applied after the curve
-point is selected, as fractions of the current panel width and height.}
+point is selected, as fractions of the current panel width and height.
+Offsets are interpreted on the displayed scale for log axes.}
 
 \item{adj, col, cex, font, xpd}{Graphical parameters passed to
 \code{\link[graphics:text]{graphics::text()}}. The previous \code{xpd} value is restored on exit.}

@@ -904,6 +904,22 @@ test_that("mts panel label and legend helpers annotate selected panels", {
   )
 })
 
+test_that("mts_panel_label handles keyword positions on log axes", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- stats::ts(cbind(
+    a = exp(seq(0, 2, length.out = 10)),
+    b = exp(seq(1, 3, length.out = 10))
+  ))
+  plot.info <- mts_plot(x, log = "y")
+
+  expect_silent(
+    mts_panel_label(plot.info, panel = 1, label = "SIR", position = "topleft")
+  )
+})
+
 test_that("mts panel label and legend helpers validate inputs and restore xpd", {
   pdf.file <- tempfile(fileext = ".pdf")
   grDevices::pdf(pdf.file)
@@ -976,6 +992,45 @@ test_that("direct_curve_label labels curves by peak-based placements", {
   )
   expect_equal(unname(point.peak[["x"]]), x[which.max(y)])
   expect_equal(unname(point.peak[["y"]]), max(y))
+})
+
+test_that("direct_curve_label handles log-scale axes", {
+  pdf.file <- tempfile(fileext = ".pdf")
+  grDevices::pdf(pdf.file)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  x <- seq(0.1, 10, length.out = 200)
+  y <- exp(-(log(x) - log(2))^2) + 0.05
+
+  graphics::plot(x, y, log = "y", type = "l")
+  expect_silent(
+    point.y <- direct_curve_label(
+      x,
+      y,
+      label = "$R_0 = 4$",
+      placement = "peak_fraction",
+      peak.fraction = 1
+    )
+  )
+  expect_named(point.y, c("x", "y"))
+  expect_true(all(is.finite(point.y)))
+  expect_gt(point.y[["y"]], 0)
+
+  graphics::plot(x, y, log = "xy", type = "l")
+  expect_silent(
+    point.xy <- direct_curve_label(
+      x,
+      y,
+      label = "$R_0 = 4$",
+      placement = "x_offset",
+      x.offset = 0.05,
+      y.text.offset = 0.03
+    )
+  )
+  expect_named(point.xy, c("x", "y"))
+  expect_true(all(is.finite(point.xy)))
+  expect_gt(point.xy[["x"]], 0)
+  expect_gt(point.xy[["y"]], 0)
 })
 
 test_that("direct_curve_label validates inputs and restores xpd", {

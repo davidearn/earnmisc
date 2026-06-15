@@ -7,7 +7,8 @@
 #' Labels are passed through [nice_text()] before drawing, so TeX-like labels
 #' work on ordinary graphics devices and tikz devices. The block can be placed
 #' either by supplying a numeric top-left anchor `(x, y)` or by supplying a
-#' legend-style keyword such as `"bottomright"` or `"topleft"`.
+#' legend-style keyword such as `"bottomright"` or `"topleft"`. Keyword
+#' placement and block layout are aware of the active log-axis state.
 #'
 #' @param x Numeric x-coordinate for the top-left anchor, or one of the
 #'   legend-style keyword positions `"bottomright"`, `"bottom"`,
@@ -128,15 +129,20 @@ aligned_text <- function(x, y = NULL,
     block.height = block.height
   )
 
-  column.left <- placement$x + c(
+  column.left.user <- placement$x.user + c(
     0,
     column.widths[["lhs"]] + gap,
     column.widths[["lhs"]] + gap + column.widths[["mid"]] + gap
   )
-  names(column.left) <- c("lhs", "mid", "rhs")
+  names(column.left.user) <- c("lhs", "mid", "rhs")
   adj <- c(lhs = lhs.adj, mid = mid.adj, rhs = rhs.adj)
-  column.x <- column.left + adj * column.widths
-  row.y <- placement$y - (seq_len(n.rows) - 1L) * row.step
+  column.x.user <- column.left.user + adj * column.widths
+  row.y.user <- placement$y.user - (seq_len(n.rows) - 1L) * row.step
+
+  column.left <- graphics_user_to_data(column.left.user, "x")
+  column.x <- graphics_user_to_data(column.x.user, "x")
+  column.right <- graphics_user_to_data(column.left.user + column.widths, "x")
+  row.y <- graphics_user_to_data(row.y.user, "y")
 
   draw_aligned_text_column(
     x = column.x[["lhs"]],
@@ -171,7 +177,11 @@ aligned_text <- function(x, y = NULL,
     rendered = rendered,
     placement = placement,
     column.left = column.left,
+    column.right = column.right,
     column.x = column.x,
+    column.left.user = column.left.user,
+    column.x.user = column.x.user,
+    row.y.user = row.y.user,
     column.widths = column.widths,
     row.y = row.y,
     row.height = row.height,
@@ -322,6 +332,8 @@ resolve_aligned_text_anchor <- function(x, y, inset, block.width,
     position = NA_character_,
     x = as.numeric(x),
     y = as.numeric(y),
+    x.user = graphics_data_to_user(as.numeric(x), "x", name = "x"),
+    y.user = graphics_data_to_user(as.numeric(y), "y", name = "y"),
     horizontal = "explicit",
     vertical = "explicit",
     usr = graphics::par("usr")
@@ -382,8 +394,10 @@ aligned_text_keyword_anchor <- function(position, inset, block.width,
   )
 
   list(
-    x = x.anchor,
-    y = y.anchor,
+    x = graphics_user_to_data(x.anchor, "x"),
+    y = graphics_user_to_data(y.anchor, "y"),
+    x.user = x.anchor,
+    y.user = y.anchor,
     horizontal = horizontal,
     vertical = vertical,
     usr = usr
@@ -445,14 +459,15 @@ draw_aligned_text_column <- function(x, y, labels, adj, cex, col, dots) {
 #' @return An `earnmisc_aligned_text_info` list.
 #' @noRd
 aligned_text_info <- function(original, rendered, placement, column.left,
-                              column.x, column.widths, row.y, row.height,
-                              row.step, block.width, block.height, gap, inset,
-                              adj, cex, col) {
+                              column.right, column.x, column.left.user,
+                              column.x.user, row.y.user, column.widths, row.y,
+                              row.height, row.step, block.width, block.height,
+                              gap, inset, adj, cex, col) {
   columns <- data.frame(
     column = names(column.x),
     x = unname(column.x),
     left = unname(column.left),
-    right = unname(column.left + column.widths),
+    right = unname(column.right),
     width = unname(column.widths),
     adj = unname(adj),
     stringsAsFactors = FALSE
@@ -473,10 +488,14 @@ aligned_text_info <- function(original, rendered, placement, column.left,
     horizontal = placement$horizontal,
     vertical = placement$vertical,
     anchor = c(x = placement$x, y = placement$y),
+    anchor.user = c(x = placement$x.user, y = placement$y.user),
     columns = columns,
     rows = rows,
     column.x = column.x,
+    column.x.user = column.x.user,
+    column.left.user = column.left.user,
     row.y = row.y,
+    row.y.user = row.y.user,
     column.widths = column.widths,
     row.height = row.height,
     row.step = row.step,

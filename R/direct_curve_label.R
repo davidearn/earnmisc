@@ -14,13 +14,15 @@
 #'   the first descending-side point where the curve has fallen to
 #'   `peak.fraction * peak.y`, using linear interpolation when possible.
 #' @param x.offset Non-negative horizontal offset, as a fraction of the current
-#'   panel width, used by `placement = "x_offset"`.
+#'   panel width, used by `placement = "x_offset"`. On a log x-axis this is
+#'   interpreted on the displayed log scale.
 #' @param peak.fraction Peak-height fraction used by
 #'   `placement = "peak_fraction"`. Values must satisfy
 #'   `0 < peak.fraction <= 1`. When `peak.fraction = 1`, the peak point itself
 #'   is used.
 #' @param x.text.offset,y.text.offset Text offsets applied after the curve
 #'   point is selected, as fractions of the current panel width and height.
+#'   Offsets are interpreted on the displayed scale for log axes.
 #' @param adj,col,cex,font,xpd Graphical parameters passed to
 #'   [graphics::text()]. The previous `xpd` value is restored on exit.
 #' @param ... Additional arguments passed to [graphics::text()].
@@ -56,6 +58,8 @@ direct_curve_label <- function(x, y,
   if (length(x) < 1L) {
     stop("`x` and `y` must contain at least one point.", call. = FALSE)
   }
+  validate_direct_curve_log_axis(x, "x")
+  validate_direct_curve_log_axis(y, "y")
 
   label <- validate_direct_curve_label(label)
   placement <- match.arg(placement)
@@ -112,6 +116,27 @@ validate_direct_curve_xy <- function(x, name) {
     stop("`", name, "` must contain only finite values.", call. = FALSE)
   }
   as.numeric(x)
+}
+
+#' Validate direct-curve coordinates against the active log axis
+#'
+#' @param x Coordinate vector.
+#' @param axis Axis name, either `"x"` or `"y"`.
+#'
+#' @return Invisibly returns `NULL`.
+#' @noRd
+validate_direct_curve_log_axis <- function(x, axis) {
+  axis <- match.arg(axis, c("x", "y"))
+  if (graphics_axis_is_log(axis) && any(x <= 0)) {
+    stop(
+      "`", axis, "` must contain only positive values on a log-scale ",
+      axis,
+      " axis.",
+      call. = FALSE
+    )
+  }
+
+  invisible(NULL)
 }
 
 #' Validate a direct-curve scalar setting
@@ -186,21 +211,8 @@ direct_curve_label_point <- function(x, y,
          call. = FALSE)
   }
 
-  usr <- graphics::par("usr")
-  panel.width <- diff(usr[1:2])
-  panel.height <- diff(usr[3:4])
-  if (!is.finite(panel.width) || panel.width == 0) {
-    panel.width <- diff(range(x[keep]))
-  }
-  if (!is.finite(panel.height) || panel.height == 0) {
-    panel.height <- diff(range(y[keep]))
-  }
-  if (!is.finite(panel.width) || panel.width == 0) {
-    panel.width <- 1
-  }
-  if (!is.finite(panel.height) || panel.height == 0) {
-    panel.height <- 1
-  }
+  panel.width <- graphics_user_span("x", fallback = x[keep], name = "x")
+  panel.height <- graphics_user_span("y", fallback = y[keep], name = "y")
 
   keep.index <- which(keep)
   peak.index <- keep.index[which.max(y[keep.index])]
@@ -231,9 +243,19 @@ direct_curve_label_point <- function(x, y,
     )
   )
 
+  point.user <- c(
+    x = graphics_data_to_user(point[["x"]], "x", name = "x"),
+    y = graphics_data_to_user(point[["y"]], "y", name = "y")
+  )
   point <- c(
-    x = point[["x"]] + x.text.offset * panel.width,
-    y = point[["y"]] + y.text.offset * panel.height
+    x = graphics_user_to_data(
+      point.user[["x"]] + x.text.offset * panel.width,
+      "x"
+    ),
+    y = graphics_user_to_data(
+      point.user[["y"]] + y.text.offset * panel.height,
+      "y"
+    )
   )
   if (any(!is.finite(point))) {
     stop("Could not compute a finite direct-curve label point.", call. = FALSE)
@@ -252,12 +274,14 @@ direct_curve_label_point_x_offset <- function(x, y,
                                               peak.x,
                                               x.offset,
                                               panel.width) {
-  target.x <- peak.x + x.offset * panel.width
+  target.x <- graphics_data_to_user(peak.x, "x", name = "x") +
+    x.offset * panel.width
   candidate <- after.index
   if (length(candidate) == 0L) {
     candidate <- keep.index
   }
-  label.index <- candidate[which.min(abs(x[candidate] - target.x))]
+  candidate.x <- graphics_data_to_user(x[candidate], "x", name = "x")
+  label.index <- candidate[which.min(abs(candidate.x - target.x))]
   c(x = x[[label.index]], y = y[[label.index]])
 }
 

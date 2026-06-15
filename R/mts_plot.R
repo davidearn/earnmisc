@@ -958,7 +958,8 @@ mts_legend <- function(
 #'   and labels returned by [nice_text()] are accepted.
 #' @param position Label position. Use one of `"topleft"`, `"topright"`,
 #'   `"bottomleft"`, `"bottomright"`, `"center"`, or `"centre"`, or a numeric
-#'   vector `c(x, y)` giving user coordinates in the selected panel.
+#'   vector `c(x, y)` giving user coordinates in the selected panel. Keyword
+#'   positions are resolved correctly on linear and log axes.
 #' @param inset Numeric inset as a fraction of the panel user-coordinate range.
 #'   A scalar is used for both directions; a length-two vector is interpreted
 #'   as x and y inset.
@@ -1980,7 +1981,7 @@ resolve_mts_panel_position <- function(position, inset) {
   x.span <- usr[[2L]] - usr[[1L]]
   y.span <- usr[[4L]] - usr[[3L]]
 
-  switch(position,
+  placement <- switch(position,
     topleft = list(
       x = usr[[1L]] + inset[[1L]] * x.span,
       y = usr[[4L]] - inset[[2L]] * y.span,
@@ -2007,6 +2008,9 @@ resolve_mts_panel_position <- function(position, inset) {
       adj = c(0.5, 0.5)
     )
   )
+  placement$x <- graphics_user_to_data(placement$x, "x")
+  placement$y <- graphics_user_to_data(placement$y, "y")
+  placement
 }
 
 #' Validate an mts panel position keyword

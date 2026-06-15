@@ -29,7 +29,8 @@ and labels returned by \code{\link[=nice_text]{nice_text()}} are accepted.}
 
 \item{position}{Label position. Use one of \code{"topleft"}, \code{"topright"},
 \code{"bottomleft"}, \code{"bottomright"}, \code{"center"}, or \code{"centre"}, or a numeric
-vector \code{c(x, y)} giving user coordinates in the selected panel.}
+vector \code{c(x, y)} giving user coordinates in the selected panel. Keyword
+positions are resolved correctly on linear and log axes.}
 
 \item{inset}{Numeric inset as a fraction of the panel user-coordinate range.
 A scalar is used for both directions; a length-two vector is interpreted

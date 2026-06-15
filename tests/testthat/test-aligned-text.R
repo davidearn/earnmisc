@@ -55,6 +55,26 @@ test_that("aligned_text accepts legend-style keyword placement", {
   expect_true(all(is.finite(out$topleft$anchor)))
 })
 
+test_that("aligned_text keyword placement handles log axes", {
+  out <- with_aligned_text_pdf({
+    graphics::plot(1:10, 1:10, type = "n", log = "y", las = 1)
+    aligned_text(
+      "topleft",
+      lhs = "$\\Rn$",
+      mid = "$=$",
+      rhs = "$4$",
+      use.tikz = TRUE
+    )
+  })
+
+  expect_s3_class(out, "earnmisc_aligned_text_info")
+  expect_equal(out$placement.type, "keyword")
+  expect_true(all(is.finite(out$anchor)))
+  expect_true(all(is.finite(out$row.y)))
+  expect_gt(out$anchor[["y"]], 0)
+  expect_true(all(out$row.y > 0))
+})
+
 test_that("aligned_text requires equal column lengths", {
   expect_error(
     aligned_text(
