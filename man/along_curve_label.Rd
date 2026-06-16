@@ -141,11 +141,47 @@ plot(x, y, type = "l")
 along_curve_label(x, y, "$Y = \\\\hat{Y}$", at = "x", x.at = 1,
                   nice.text.args = list(warn = FALSE))
 
-x <- seq(0, 2 * pi, length.out = 200)
-y <- sin(x)
-plot(x, y, type = "l")
-along_curve_label(x, y, "knockout", at = "fraction", fraction = 0.3,
-                  knockout = TRUE)
+sir.pars <- data.frame(
+  R0 = c(2, 3, 4),
+  x.minus = c(0.8, 0.9, 1)
+)
+plot(NA, NA, xlim = c(0, 1), ylim = c(0, 0.45),
+     xlab = "susceptible fraction, x",
+     ylab = "infectious fraction, y")
+line <- c(x = 0.65, y = 0, slope = Inf)
+graphics::abline(v = line[["x"]], col = "grey85", lty = 3)
+for (i in seq_len(nrow(sir.pars))) {
+  R0 <- sir.pars$R0[[i]]
+  x.minus <- sir.pars$x.minus[[i]]
+  x.peak <- 1 / R0
+  y.max <- (x.minus - x.peak) - x.peak * log(x.minus / x.peak)
+  y.phase <- function(x) {
+    y.max - (x - x.peak) + x.peak * log(x / x.peak)
+  }
+  x.left <- stats::uniroot(y.phase, c(.Machine$double.eps, x.peak))$root
+  x <- seq(x.left, x.minus, length.out = 300)
+  y <- y.phase(x)
+  graphics::lines(x, y, col = grey(0.25 + 0.15 * i), lwd = 1.5)
+  along_curve_label(
+    x, y,
+    sprintf("$\\\\hat{y} = \%g$", y.max),
+    at = "fraction",
+    fraction = c(0.38, 0.43, 0.47)[[i]],
+    knockout = TRUE,
+    nice.text = TRUE,
+    cex = 0.75
+  )
+  along_curve_label(
+    x, y,
+    sprintf("$x^- = \%g$", x.minus),
+    at = "line",
+    line = line,
+    col = "#0072B2",
+    knockout = TRUE,
+    nice.text = TRUE,
+    cex = 0.75
+  )
+}
 
 x <- seq(0.1, 10, length.out = 200)
 y <- exp(-0.4 * x) + 0.02
